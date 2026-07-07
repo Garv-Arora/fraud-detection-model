@@ -1,0 +1,33 @@
+# Version Control Ignore Rules - Universal Sompo
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Databases
+backend/data/*.db
+backend/data/*.sqlite3
+*.db
+
+# Uploads
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep
+
+# Environment variables (Credentials)
+.env
+
+# Dependencies
+node_modules/
+jspm_packages/
+web_packages/
+venv/
+.venv/
+env/
+
+# Build directories
+dist/
+build/
+.gradle/
+local.properties
