@@ -49,14 +49,42 @@ class ClaimFacts(BaseModel):
     claim_id: str
     policy_information: Optional[str] = None
     supporting_information: Optional[str] = None
-    accident_date_time: Optional[str] = None
-    loss_location: Optional[str] = None
+    
+    # 30 Tera Bot Schema attributes
+    insured_name: Optional[str] = None
+    insured_address: Optional[str] = None
+    insured_contact_no: Optional[str] = None
     vehicle_numbers: List[str] = []
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_contact_no: Optional[str] = None
+    spot_of_accident: Optional[str] = None
+    accident_date_time: Optional[str] = None
+    accident_location_city: Optional[str] = None
+    accident_location_state: Optional[str] = None
+    accident_location_region: Optional[str] = None
+    FIR_cause_narrative: Optional[str] = None
+    intimation_date: Optional[str] = None
+    fir_date: Optional[str] = None
+    fir_time: Optional[str] = None
+    police_station: Optional[str] = None
+    police_station_district: Optional[str] = None
+    state: Optional[str] = None
+    no_of_occupants: Optional[str] = None
+    news_check: Optional[str] = None
+    social_media_check: Optional[str] = None
+    past_record_vehicle: Optional[str] = None
+    call_112_check: Optional[str] = None
+    call_108_check: Optional[str] = None
+    hospital_name: Optional[str] = None
+    crime_check: Optional[str] = None
+    io_name: Optional[str] = None
+
+    loss_location: Optional[str] = None
     vehicle_types: List[str] = []
     parties_involved: List[str] = []
     injury_or_death: Optional[str] = None
-    FIR_cause_narrative: Optional[str] = None
-    police_station: Optional[str] = None
     district_state: Optional[str] = None
 
 class IngestionFactsResponse(BaseModel):
@@ -68,14 +96,41 @@ class CaseResponse(BaseModel):
     claim_id: str
     policy_information: Optional[str] = None
     supporting_information: Optional[str] = None
-    accident_date_time: Optional[str] = None
-    loss_location: Optional[str] = None
+    
+    insured_name: Optional[str] = None
+    insured_address: Optional[str] = None
+    insured_contact_no: Optional[str] = None
     vehicle_numbers: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_contact_no: Optional[str] = None
+    spot_of_accident: Optional[str] = None
+    accident_date_time: Optional[str] = None
+    accident_location_city: Optional[str] = None
+    accident_location_state: Optional[str] = None
+    accident_location_region: Optional[str] = None
+    FIR_cause_narrative: Optional[str] = None
+    intimation_date: Optional[str] = None
+    fir_date: Optional[str] = None
+    fir_time: Optional[str] = None
+    police_station: Optional[str] = None
+    police_station_district: Optional[str] = None
+    state: Optional[str] = None
+    no_of_occupants: Optional[str] = None
+    news_check: Optional[str] = None
+    social_media_check: Optional[str] = None
+    past_record_vehicle: Optional[str] = None
+    call_112_check: Optional[str] = None
+    call_108_check: Optional[str] = None
+    hospital_name: Optional[str] = None
+    crime_check: Optional[str] = None
+    io_name: Optional[str] = None
+
+    loss_location: Optional[str] = None
     vehicle_types: Optional[str] = None
     parties_involved: Optional[str] = None
     injury_or_death: Optional[str] = None
-    FIR_cause_narrative: Optional[str] = None
-    police_station: Optional[str] = None
     district_state: Optional[str] = None
     confidence_scores: Optional[str] = None
     confirmed: bool

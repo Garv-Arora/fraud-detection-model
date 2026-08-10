@@ -227,8 +227,12 @@ def calculate_source_reliability(url: str) -> float:
         
     return 0.6
 
-def score_evidence_link(facts: Dict[str, Any], evidence: Dict[str, Any]) -> float:
-    """Computes a weighted relevance score for a single evidence item (0.0 to 1.0)."""
+def score_evidence_link_detailed(facts: Dict[str, Any], evidence: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Computes an enhanced multi-factor evidence score with explicit parameter breakdown.
+    Formula: Entity & Vehicle Plate Match (35%) + Semantic Narrative (20%) + Date Proximity (20%) + Location (15%) + Source Authority (10%).
+    Exact vehicle plate / name match automatically scales entity score and relaxes location variance.
+    """
     title = evidence.get("title", "")
     snippet = evidence.get("snippet", "")
     url = evidence.get("url", "")
@@ -237,21 +241,88 @@ def score_evidence_link(facts: Dict[str, Any], evidence: Dict[str, Any]) -> floa
     combined_text = f"{title} {snippet}"
     cause_narrative = facts.get("FIR_cause_narrative", "")
     
-    sem_score = cosine_similarity(combined_text, cause_narrative)
-    keyword_score = calculate_entity_match(facts, combined_text)
-    date_score = calculate_date_proximity(facts.get("accident_date_time", ""), combined_text, pub_date)
-    loc_score = calculate_location_feasibility(facts, combined_text)
-    src_score = calculate_source_reliability(url)
+    # Check for hard vehicle reg match & party names
+    v_nums = facts.get("vehicle_numbers", [])
+    has_exact_v = False
+    clean_combined = combined_text.replace("-", "").replace(" ", "").upper()
+    for v in v_nums:
+        v_clean = str(v).replace("-", "").replace(" ", "").upper()
+        if v_clean and len(v_clean) >= 6 and v_clean in clean_combined:
+            has_exact_v = True
+            break
+            
+    parties = facts.get("parties_involved", [])
+    if facts.get("insured_name"):
+        parties.append(facts.get("insured_name"))
+    if facts.get("driver_name"):
+        parties.append(facts.get("driver_name"))
+        
+    has_party_match = False
+    for p in parties:
+        p_clean = str(p).split("(")[0].strip().lower()
+        if p_clean and len(p_clean) >= 3 and p_clean in combined_text.lower():
+            has_party_match = True
+            break
+
+    # 1. Entity & Vehicle Plate Match (Weight: 0.35)
+    if has_exact_v and has_party_match:
+        raw_entity = 1.0
+    elif has_exact_v:
+        raw_entity = 0.95
+    elif has_party_match:
+        raw_entity = 0.75
+    else:
+        raw_entity = calculate_entity_match(facts, combined_text)
+        
+    entity_score = raw_entity * 0.35
     
-    weighted_score = (
-        (sem_score * 0.35) +
-        (keyword_score * 0.20) +
-        (date_score * 0.15) +
-        (loc_score * 0.15) +
-        (src_score * 0.15)
-    )
+    # 2. Semantic Similarity (Weight: 0.20)
+    sem_raw = cosine_similarity(combined_text, cause_narrative) if cause_narrative else (0.80 if (has_exact_v or has_party_match) else 0.30)
+    semantic_score = sem_raw * 0.20
     
-    return round(weighted_score, 2)
+    # 3. Date Proximity (Weight: 0.20)
+    date_raw = calculate_date_proximity(facts.get("accident_date_time", ""), combined_text, pub_date)
+    date_score = date_raw * 0.20
+    
+    # 4. Location Feasibility (Weight: 0.15)
+    # If exact vehicle plate or party name matches, relax location constraint
+    if has_exact_v or has_party_match:
+        loc_raw = max(0.85, calculate_location_feasibility(facts, combined_text))
+    else:
+        loc_raw = calculate_location_feasibility(facts, combined_text)
+        
+    location_score = loc_raw * 0.15
+    
+    # 5. Source Authority (Weight: 0.10)
+    src_raw = calculate_source_reliability(url)
+    source_score = src_raw * 0.10
+    
+    # 6. Contradiction Penalty
+    contradiction_penalty = 0.0
+    text_lower = combined_text.lower()
+    narrative_lower = cause_narrative.lower() if cause_narrative else ""
+    if ("stationary" in text_lower or "parked" in text_lower) and ("speeding" in narrative_lower or "moving" in narrative_lower):
+        contradiction_penalty = 0.15
+        
+    raw_total = (entity_score + semantic_score + date_score + location_score + source_score) - contradiction_penalty
+    final_score = round(min(1.0, max(0.0, raw_total)), 2)
+    
+    return {
+        "score": final_score,
+        "breakdown": {
+            "entity_score": round(entity_score, 3),
+            "semantic_score": round(semantic_score, 3),
+            "date_score": round(date_score, 3),
+            "location_score": round(location_score, 3),
+            "source_score": round(source_score, 3),
+            "contradiction_penalty": round(contradiction_penalty, 3)
+        }
+    }
+
+def score_evidence_link(facts: Dict[str, Any], evidence: Dict[str, Any]) -> float:
+    """Computes a weighted relevance score for a single evidence item (0.0 to 1.0)."""
+    res = score_evidence_link_detailed(facts, evidence)
+    return res["score"]
 
 def evaluate_mismatch_flags(facts: Dict[str, Any], evidences: List[Dict[str, Any]]) -> Tuple[List[str], Dict[str, str]]:
     """Evaluates potential fraud-risk mismatches between claim facts and top evidence."""
@@ -380,70 +451,90 @@ def evaluate_mismatch_flags(facts: Dict[str, Any], evidences: List[Dict[str, Any
 
 def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], flagged_mismatches: List[str], image_matches: List[Dict[str, Any]]) -> str:
     """
-    Generates a concise AI summary of the collected evidence to assist investigators.
-    Contains key observations, relevant findings, source references, and highlights.
+    Rigorously condenses public web search findings and provides objectivity of findings using OpenAI GPT API.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
     # Pre-select top evidence
-    top_evidences = sorted(evidences, key=lambda x: x.get("score", 0), reverse=True)[:5]
+    top_evidences = sorted(evidences, key=lambda x: x.get("score", 0), reverse=True)[:6]
     evidence_desc = ""
-    for idx, ev in enumerate(top_evidences):
-        evidence_desc += f"- [{ev.get('source')}] {ev.get('title')} ({ev.get('url')}): {ev.get('snippet')}\n"
+    if top_evidences:
+        for idx, ev in enumerate(top_evidences, 1):
+            evidence_desc += f"{idx}. [{ev.get('source', 'Web')}] {ev.get('title')}\n   URL: {ev.get('url')}\n   Snippet: {ev.get('snippet')}\n   Score: {ev.get('score', 0)}\n\n"
+    else:
+        evidence_desc = "ZERO (0) public web pages, news articles, or social media posts specifically matching vehicle registration or party name were found online across Google/DuckDuckGo/Bing search indexes.\n"
         
     image_desc = ""
     for im in image_matches:
-        image_desc += f"- Image '{im.get('image_name')}': status={im.get('status')}. details={im.get('why_matched')}\n"
-        
-    if api_key:
+        image_desc += f"- Photo '{im.get('image_name')}': Status={im.get('status')}. URL={im.get('matched_url') or 'N/A'}. Details={im.get('why_matched')}\n"
+
+    if openai_key:
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            from openai import OpenAI
+            client = OpenAI(api_key=openai_key)
             
-            prompt = f"""
-            You are the AI Summary Generation module for the Universal Sompo AI Claim Evidence Finder.
-            Your task is to generate a concise summary of the collected evidence to assist the investigator.
-            
-            Claim Details:
-            - Claim ID: {facts.get('claim_id')}
-            - Policy Information: {facts.get('policy_information')}
-            - Date/Time: {facts.get('accident_date_time')}
-            - Location: {facts.get('loss_location')}, {facts.get('district_state')}
-            - Vehicles: {', '.join(facts.get('vehicle_numbers', []))}
-            - Parties: {', '.join(facts.get('parties_involved', []))}
-            - Claim Narrative: {facts.get('FIR_cause_narrative')}
-            - Supporting Information: {facts.get('supporting_information')}
-            
-            Gathered Evidence:
-            {evidence_desc}
-            
-            Google Lens Image Verification:
-            {image_desc}
-            
-            Flagged Mismatches: {', '.join(flagged_mismatches)}
-            
-            Format the response nicely in Markdown with the following specific sections:
-            ### Key Observations
-            - 2-3 bullet points outlining the core facts.
-            
-            ### Relevant Findings
-            - Summary of how closely public reports match or contradict the claim.
-            
-            ### Source References
-            - Whitelisted news portals (Jagran, Amar Ujala), Quest internal history, and Social Media (Facebook/Instagram) links that were corroborated.
-            
-            ### Investigation Highlights
-            - Highlight any fraud indicators like stock photo reuse (Lens flags) or cause discrepancies (e.g. stationary truck vs moving collision).
-            
-            Provide a clean, executive summary. Do not include a final approval or rejection decision. End with a standard disclaimer:
-            "*Disclaimer: This AI summary is generated as an evidence discovery aid and does not constitute a final claim decision. All final judgements are the sole responsibility of the authorized Universal Sompo investigator.*"
-            """
-            response = model.generate_content(prompt)
-            return response.text.strip()
+            prompt = f"""You are the Lead RCU Evidence Discovery Specialist for Universal Sompo General Insurance.
+Your objective is to conduct a rigorous analysis of the extracted claim facts against public web search findings, and condense the search into an objective, highly relevant executive report.
+
+CRITICAL MANDATORY URL & ACCURACY RULES:
+1. If ZERO (0) relevant web evidence items are listed in the search findings, explicitly state under Executive Web Search Summary and Key Web Evidence Bulletins that 0 public web pages specifically matching this claim's vehicle registration or driver name were found online. DO NOT invent or fabricate any fake news articles or fake URLs.
+2. When listing URLs in "Key Web Evidence Bulletins", you MUST ONLY use the EXACT, VERBATIM URLs provided in the "RIGOROUS WEB SEARCH FINDINGS" list below. Copy the exact `url` property verbatim.
+
+EXTRACTED CLAIM FACTS (30-Header Schema):
+- Claim ID: {facts.get('claim_id')}
+- Insured Name: {facts.get('insured_name')}
+- Driver Name: {facts.get('driver_name')}
+- Policy Information: {facts.get('policy_information')}
+- Incident Date & Time: {facts.get('accident_date_time')}
+- Loss Spot / Location: {facts.get('spot_of_accident') or facts.get('loss_location')}, {facts.get('district_state')}
+- Vehicle Registration(s): {', '.join(facts.get('vehicle_numbers', []))}
+- Vehicle Make & Model: {facts.get('vehicle_make')} {facts.get('vehicle_model')}
+- Police Station & District: {facts.get('police_station')}, {facts.get('police_station_district')}
+- FIR Cause Narrative: {facts.get('FIR_cause_narrative')}
+
+RIGOROUS WEB SEARCH FINDINGS:
+{evidence_desc}
+
+GOOGLE LENS / STOCK IMAGE VERIFICATION:
+{image_desc if image_desc else 'No image reuse flags detected.'}
+
+FLAGGED MISMATCH CATEGORIES: {', '.join(flagged_mismatches) if flagged_mismatches else 'None'}
+
+PROVIDE A HIGHLY CONDENSED, OBJECTIVE EXECUTIVE REPORT IN MARKDOWN WITH THESE EXACT SECTIONS:
+
+### 🌐 Executive Web Search Summary
+- 2-3 bullet points objectively reporting the core public web evidence (or stating clearly that 0 matching web records were found online).
+
+### 🎯 Objectivity & Fact Verification
+- Itemize factual corroborations vs contradictions across key parameters:
+  * **Date & Time**: (Verified vs Discrepancy vs Unverified online)
+  * **Accident Cause**: (Corroborated vs Cause mismatch e.g. stationary truck vs moving collision vs Unverified online)
+  * **Vehicle Reg & Parties**: (Matched vs Unverified online)
+  * **Police Station Records**: (Corroborated vs Pending)
+
+### 🔍 Key Web Evidence Bulletins
+- List the top 3-4 most relevant web sources using verbatim URLs from search results, OR if 0 evidence found, explicitly state "No direct public web pages identified specifically referencing this claim."
+
+### ⚠️ RCU Investigation Risk Highlights
+- Objective bullet points highlighting any fraud indicators, stock photo reuse, or critical discrepancies flagged during web search cross-examination.
+
+Disclaimer: *This AI summary is generated as an evidence discovery aid and does not constitute a final claim decision. All final judgements are the sole responsibility of the authorized Universal Sompo investigator.*"""
+
+            response = client.chat.completions.create(
+                model=openai_model,
+                messages=[
+                    {"role": "system", "content": "You are a professional RCU evidence discovery analyst for Universal Sompo General Insurance."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=850
+            )
+            return response.choices[0].message.content.strip()
         except Exception as e:
-            logger.error(f"Gemini summary generation failed: {e}")
-            
-    # Heuristics summary compiler
+            logger.error(f"OpenAI summary generation failed: {e}")
+
+    # Heuristics summary compiler fallback
     location = facts.get("loss_location") or facts.get("district_state") or "N/A"
     date_val = facts.get("accident_date_time", "N/A")
     date_str = date_val.split("T")[0] if date_val and "T" in date_val else date_val
@@ -453,9 +544,8 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
     findings = []
     highlights = []
     
-    # Build findings based on mismatches
     if "cause" in flagged_mismatches:
-        findings.append("Discrepancy in accident cause: Claim details describe a moving collision, whereas public news sources (e.g., Bhaskar report) detail the motorcycle hitting a stationary/parked vehicle.")
+        findings.append("Discrepancy in accident cause: Claim details describe a moving collision, whereas public news sources detail the motorcycle hitting a stationary/parked vehicle.")
         highlights.append("⚠️ Flagged: CAUSE discrepancy between FIR narrative and news portals.")
     else:
         findings.append("Public news articles and reports match the claim narrative cause.")
@@ -464,7 +554,6 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
         findings.append("Proximity violation: The accident timestamp in the claim contradicts article event timestamps by more than 24 hours.")
         highlights.append("⚠️ Flagged: TIME discrepancy between claim and public records.")
         
-    # Build highlights for images
     has_stock_img = False
     for im in image_matches:
         if "Stock" in im.get("status", ""):
@@ -475,25 +564,22 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
         findings.append("All collected evidence corroborates the claims details perfectly.")
         highlights.append("✅ No critical discrepancies or image reuse identified.")
         
-    # Gather whitelisted source names
     sources_corroborated = list(set([ev.get("source") for ev in top_evidences]))
-    
     highlights_str = "".join([f"* {h}\n" for h in highlights])
     
-    summary = f"""### Key Observations
+    summary = f"""### 🌐 Executive Web Search Summary
 * **Claim Ingested**: Ingestion processed for Claim ID **{facts.get('claim_id')}** (Policy: **{facts.get('policy_information') or 'N/A'}**).
 * **Incident Profile**: Accident occurred on **{date_str}** near **{location}** involving vehicles **{vehicles}**.
 * **Parties involved**: **{parties}**.
 
-### Relevant Findings
+### 🎯 Objectivity & Fact Verification
 * {" ".join(findings)}
-* Public search returned **{len(evidences)}** relevant matches across different news and social media portals.
+* Public search returned **{len(evidences)}** relevant matches across news and social media portals.
 
-### Source References
+### 🔍 Key Web Evidence Bulletins
 * Evidence fanned out to: **{", ".join(sources_corroborated) if sources_corroborated else 'News, Quest, Web, Facebook, Instagram'}**.
-* Top whitelisted sources: **Jagran, Amar Ujala, Bhaskar** and verified Facebook updates.
 
-### Investigation Highlights
+### ⚠️ RCU Investigation Risk Highlights
 {highlights_str}
 *Disclaimer: This AI summary is generated as an evidence discovery aid and does not constitute a final claim decision. All final judgements are the sole responsibility of the authorized Universal Sompo investigator.*"""
 

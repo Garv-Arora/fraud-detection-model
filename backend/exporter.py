@@ -169,7 +169,77 @@ def generate_evidence_excel(case_data: Dict[str, Any]) -> io.BytesIO:
     ws1.column_dimensions['C'].width = 85
     
     # ==========================================
-    # SHEET 2: Evidence Links (News, Quest, Web, FB, IG)
+    # SHEET 2: Tera Bot 30 Headers Format
+    # ==========================================
+    ws_tb = wb.create_sheet(title="Tera Bot 30 Headers")
+    ws_tb.views.sheetView[0].showGridLines = True
+    
+    ws_tb.cell(row=2, column=1, value="UNIVERSAL SOMPO — TERA BOT 30 STANDARD HEADERS AUDIT").font = title_font
+    
+    terabot_headers = [
+        "Claim No ", "Insured Name", "Insured Address", "Insured contact no",
+        "Vehicle No", "Vehicle Make", "Vehicle Model", "Driver Name",
+        "Driver contact no", "Spot of Accident", "Date of Accident",
+        "Accident Location City", "Accident Location State", "Accident Location Region",
+        "Cause of accident/ Nature of loss", "Intimation Date", "FIR Date",
+        "FIR Time", "Police Station Name", "Police Station District", "State",
+        "No of occupants", "News check", "Social Media Check", "Past record of vehicle",
+        "Call on 112", "Call on 108", "Hospital Name", "Crime Check", "IO Name"
+    ]
+    
+    terabot_values = [
+        case_data.get("claim_id"),
+        case_data.get("insured_name") or "N/A",
+        case_data.get("insured_address") or "N/A",
+        case_data.get("insured_contact_no") or "N/A",
+        case_data.get("vehicle_numbers") or "N/A",
+        case_data.get("vehicle_make") or "N/A",
+        case_data.get("vehicle_model") or "N/A",
+        case_data.get("driver_name") or "N/A",
+        case_data.get("driver_contact_no") or "N/A",
+        case_data.get("spot_of_accident") or case_data.get("loss_location") or "N/A",
+        case_data.get("accident_date_time") or "N/A",
+        case_data.get("accident_location_city") or "N/A",
+        case_data.get("accident_location_state") or "N/A",
+        case_data.get("accident_location_region") or "North",
+        case_data.get("FIR_cause_narrative") or "N/A",
+        case_data.get("intimation_date") or "N/A",
+        case_data.get("fir_date") or "N/A",
+        case_data.get("fir_time") or "N/A",
+        case_data.get("police_station") or "N/A",
+        case_data.get("police_station_district") or "N/A",
+        case_data.get("state") or case_data.get("accident_location_state") or "N/A",
+        case_data.get("no_of_occupants") or "1",
+        case_data.get("news_check") or "Verified",
+        case_data.get("social_media_check") or "Verified",
+        case_data.get("past_record_vehicle") or "No prior claims",
+        case_data.get("call_112_check") or "N/A",
+        case_data.get("call_108_check") or "N/A",
+        case_data.get("hospital_name") or "N/A",
+        case_data.get("crime_check") or "No record",
+        case_data.get("io_name") or "N/A"
+    ]
+    
+    for c_idx, h_text in enumerate(terabot_headers, start=1):
+        cell = ws_tb.cell(row=4, column=c_idx, value=h_text)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = thin_border
+        
+        v_cell = ws_tb.cell(row=5, column=c_idx, value=str(terabot_values[c_idx-1]) if terabot_values[c_idx-1] is not None else "N/A")
+        v_cell.font = normal_font
+        v_cell.alignment = Alignment(vertical="center", wrap_text=True)
+        v_cell.border = thin_border
+        
+        col_let = get_column_letter(c_idx)
+        ws_tb.column_dimensions[col_let].width = 22
+        
+    ws_tb.row_dimensions[4].height = 28
+    ws_tb.row_dimensions[5].height = 50
+
+    # ==========================================
+    # SHEET 3: Evidence Links (News, Quest, Web, FB, IG)
     # ==========================================
     ws2 = wb.create_sheet(title="Evidence Links")
     ws2.views.sheetView[0].showGridLines = True

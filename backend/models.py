@@ -7,18 +7,46 @@ class Case(Base):
     __tablename__ = "cases"
 
     id = Column(Integer, primary_key=True, index=True)
-    claim_id = Column(String, unique=True, index=True, nullable=False)
+    claim_id = Column(String, unique=True, index=True, nullable=False) # 1. Claim No
     policy_information = Column(String, nullable=True)
     supporting_information = Column(String, nullable=True)
     
-    accident_date_time = Column(String, nullable=True)
+    # Tera Bot 30-Header Attributes
+    insured_name = Column(String, nullable=True)             # 2. Insured Name
+    insured_address = Column(String, nullable=True)          # 3. Insured Address
+    insured_contact_no = Column(String, nullable=True)       # 4. Insured Contact No
+    vehicle_numbers = Column(String, nullable=True)          # 5. Vehicle No (Comma-separated/string)
+    vehicle_make = Column(String, nullable=True)             # 6. Vehicle Make
+    vehicle_model = Column(String, nullable=True)            # 7. Vehicle Model
+    driver_name = Column(String, nullable=True)              # 8. Driver Name
+    driver_contact_no = Column(String, nullable=True)        # 9. Driver Contact No
+    spot_of_accident = Column(String, nullable=True)         # 10. Spot of Accident
+    accident_date_time = Column(String, nullable=True)       # 11. Date of Accident
+    accident_location_city = Column(String, nullable=True)   # 12. Accident Location City
+    accident_location_state = Column(String, nullable=True)  # 13. Accident Location State
+    accident_location_region = Column(String, nullable=True) # 14. Accident Location Region
+    FIR_cause_narrative = Column(Text, nullable=True)        # 15. Cause of accident/ Nature of loss
+    intimation_date = Column(String, nullable=True)          # 16. Intimation Date
+    fir_date = Column(String, nullable=True)                 # 17. FIR Date
+    fir_time = Column(String, nullable=True)                 # 18. FIR Time
+    police_station = Column(String, nullable=True)           # 19. Police Station Name
+    police_station_district = Column(String, nullable=True)  # 20. Police Station District
+    state = Column(String, nullable=True)                    # 21. State
+    no_of_occupants = Column(String, nullable=True)          # 22. No of occupants
+    news_check = Column(String, nullable=True)               # 23. News check
+    social_media_check = Column(String, nullable=True)       # 24. Social Media Check
+    past_record_vehicle = Column(String, nullable=True)      # 25. Past record of vehicle
+    call_112_check = Column(String, nullable=True)           # 26. Call on 112
+    call_108_check = Column(String, nullable=True)           # 27. Call on 108
+    hospital_name = Column(String, nullable=True)            # 28. Hospital Name
+    crime_check = Column(String, nullable=True)              # 29. Crime Check
+    io_name = Column(String, nullable=True)                  # 30. IO Name
+
+    # System/Ingestion metadata
     loss_location = Column(String, nullable=True)
-    vehicle_numbers = Column(String, nullable=True)  # Comma-separated or JSON string
-    vehicle_types = Column(String, nullable=True)    # Comma-separated or JSON string
-    parties_involved = Column(String, nullable=True) # Comma-separated or JSON string
+    vehicle_types = Column(String, nullable=True)
+    parties_involved = Column(String, nullable=True)
     injury_or_death = Column(String, nullable=True)
-    FIR_cause_narrative = Column(Text, nullable=True)
-    police_station = Column(String, nullable=True)
     district_state = Column(String, nullable=True)
     confidence_scores = Column(Text, nullable=True)  # JSON string
     

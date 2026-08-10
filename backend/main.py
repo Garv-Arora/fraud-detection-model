@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 import pandas as pd
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks, status
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
@@ -42,14 +42,66 @@ app.add_middleware(
 
 # Directory paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
 UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+SAMPLES_DIR = os.path.join(ROOT_DIR, "samples")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(TEMPLATE_DIR, exist_ok=True)
 
 # Mount uploads static directory
 app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+def save_facts_to_case_model(db_case: Case, facts: dict, confidence: dict = None):
+    """Helper to populate all 30 Tera Bot schema fields onto a Case instance."""
+    db_case.policy_information = facts.get("policy_information")
+    db_case.supporting_information = facts.get("supporting_information")
+    db_case.insured_name = facts.get("insured_name")
+    db_case.insured_address = facts.get("insured_address")
+    db_case.insured_contact_no = facts.get("insured_contact_no")
+    
+    v_nums = facts.get("vehicle_numbers")
+    db_case.vehicle_numbers = ",".join(v_nums) if isinstance(v_nums, list) else str(v_nums or "")
+    
+    db_case.vehicle_make = facts.get("vehicle_make")
+    db_case.vehicle_model = facts.get("vehicle_model")
+    db_case.driver_name = facts.get("driver_name")
+    db_case.driver_contact_no = facts.get("driver_contact_no")
+    db_case.spot_of_accident = facts.get("spot_of_accident")
+    db_case.accident_date_time = facts.get("accident_date_time")
+    db_case.accident_location_city = facts.get("accident_location_city")
+    db_case.accident_location_state = facts.get("accident_location_state")
+    db_case.accident_location_region = facts.get("accident_location_region") or "North"
+    db_case.FIR_cause_narrative = facts.get("FIR_cause_narrative")
+    db_case.intimation_date = facts.get("intimation_date")
+    db_case.fir_date = facts.get("fir_date")
+    db_case.fir_time = facts.get("fir_time")
+    db_case.police_station = facts.get("police_station")
+    db_case.police_station_district = facts.get("police_station_district")
+    db_case.state = facts.get("state") or facts.get("accident_location_state")
+    db_case.no_of_occupants = facts.get("no_of_occupants") or "1"
+    db_case.news_check = facts.get("news_check") or "Pending Search"
+    db_case.social_media_check = facts.get("social_media_check") or "Pending Search"
+    db_case.past_record_vehicle = facts.get("past_record_vehicle") or "No prior record"
+    db_case.call_112_check = facts.get("call_112_check") or "N/A"
+    db_case.call_108_check = facts.get("call_108_check") or "N/A"
+    db_case.hospital_name = facts.get("hospital_name") or "N/A"
+    db_case.crime_check = facts.get("crime_check") or "No record"
+    db_case.io_name = facts.get("io_name") or "N/A"
+    db_case.loss_location = facts.get("loss_location") or facts.get("spot_of_accident") or facts.get("accident_location_city")
+    
+    v_types = facts.get("vehicle_types")
+    db_case.vehicle_types = ",".join(v_types) if isinstance(v_types, list) else str(v_types or "")
+    
+    parties = facts.get("parties_involved")
+    db_case.parties_involved = ",".join(parties) if isinstance(parties, list) else str(parties or "")
+    
+    db_case.injury_or_death = facts.get("injury_or_death")
+    db_case.district_state = facts.get("district_state")
+    
+    if confidence:
+        db_case.confidence_scores = json.dumps(confidence)
 
 def run_evidence_search_pipeline(case_id: int, db_session: Session):
     try:
@@ -68,20 +120,37 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
         ))
         db_session.commit()
         
-        # Parse facts
+        # Parse facts dictionary
         facts = {
             "claim_id": case.claim_id,
             "policy_information": case.policy_information,
             "supporting_information": case.supporting_information,
-            "accident_date_time": case.accident_date_time,
-            "loss_location": case.loss_location,
+            "insured_name": case.insured_name,
+            "insured_address": case.insured_address,
+            "insured_contact_no": case.insured_contact_no,
             "vehicle_numbers": [v.strip() for v in case.vehicle_numbers.split(",") if v.strip()] if case.vehicle_numbers else [],
+            "vehicle_make": case.vehicle_make,
+            "vehicle_model": case.vehicle_model,
+            "driver_name": case.driver_name,
+            "driver_contact_no": case.driver_contact_no,
+            "spot_of_accident": case.spot_of_accident,
+            "accident_date_time": case.accident_date_time,
+            "accident_location_city": case.accident_location_city,
+            "accident_location_state": case.accident_location_state,
+            "accident_location_region": case.accident_location_region,
+            "FIR_cause_narrative": case.FIR_cause_narrative,
+            "intimation_date": case.intimation_date,
+            "fir_date": case.fir_date,
+            "fir_time": case.fir_time,
+            "police_station": case.police_station,
+            "police_station_district": case.police_station_district,
+            "state": case.state,
+            "no_of_occupants": case.no_of_occupants,
+            "loss_location": case.loss_location,
             "vehicle_types": [v.strip() for v in case.vehicle_types.split(",") if v.strip()] if case.vehicle_types else [],
             "parties_involved": [v.strip() for v in case.parties_involved.split(",") if v.strip()] if case.parties_involved else [],
             "injury_or_death": case.injury_or_death,
-            "police_station": case.police_station,
-            "district_state": case.district_state,
-            "FIR_cause_narrative": case.FIR_cause_narrative
+            "district_state": case.district_state
         }
         
         # Generate Queries
@@ -97,11 +166,12 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
         # Execute Search
         raw_results = search_engine.search_public_sources(facts, queries)
         
-        # Score Results
+        # Score Results using Multi-Factor Algorithm
         scored_evidences = []
         for ev in raw_results:
-            score = scorer.score_evidence_link(facts, ev)
-            ev["score"] = score
+            score_res = scorer.score_evidence_link_detailed(facts, ev)
+            ev["score"] = score_res["score"]
+            ev["breakdown"] = score_res["breakdown"]
             scored_evidences.append(ev)
             
         # Deduplicate & rank top 10
@@ -110,8 +180,13 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
         # Delete old evidence logs
         db_session.query(Evidence).filter(Evidence.case_id == case.id).delete()
         
-        # Save evidence
+        # Save evidence with multi-factor breakdown tag
         for ev in ranked_evidences:
+            bk = ev.get("breakdown", {})
+            why_rel = f"Multi-Factor Score: {ev['score']*100:.0f}/100 | Entity Match: {bk.get('entity_score',0)*100:.0f}% | Semantic: {bk.get('semantic_score',0)*100:.0f}% | Date: {bk.get('date_score',0)*100:.0f}% | Location: {bk.get('location_score',0)*100:.0f}% | Source Authority: {bk.get('source_score',0)*100:.0f}%"
+            if bk.get("contradiction_penalty", 0) > 0:
+                why_rel += f" | Penalty: -{bk.get('contradiction_penalty')*100:.0f}%"
+                
             evidence_obj = Evidence(
                 case_id=case.id,
                 source=ev.get("source", "Web"),
@@ -119,7 +194,7 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
                 url=ev.get("url"),
                 snippet=ev.get("snippet"),
                 score=ev.get("score", 0.0),
-                why_relevant=ev.get("why_relevant") or f"Matched on query: {ev.get('query_used')}",
+                why_relevant=why_rel,
                 publish_date=ev.get("publish_date"),
                 query_used=ev.get("query_used")
             )
@@ -165,6 +240,8 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
         case.risk_level = risk_level
         case.status = "Completed"
         case.ai_summary = ai_summary
+        case.news_check = f"Completed ({len(ranked_evidences)} sources found)"
+        case.social_media_check = "Completed (Facebook & Instagram checked)"
         case.top_mismatches = ",".join(flagged_categories)
         case.mismatch_cause = mismatch_explanations["cause"]
         case.mismatch_location = mismatch_explanations["location"]
@@ -175,7 +252,7 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
         db_session.add(AuditLog(
             case_id=case.id,
             action="Analysis Completed",
-            details=f"Analysis finished. Summary generated. Risk: {risk_level}."
+            details=f"Analysis finished. Tera Bot 30-Header Summary generated. Risk: {risk_level}."
         ))
         
         db_session.commit()
@@ -224,9 +301,17 @@ def pull_claims_from_quest(db: Session = Depends(get_db)):
             "claim_id": "TP-RCU-UP-00517/2025",
             "policy_information": "POL-998877-2025",
             "supporting_information": "Previous claim registered for vehicle UP-85-AT-9988 in 2023 for front bumper damage.",
+            "insured_name": "Ramesh Kumar",
+            "insured_address": "Kosi Kalan, Mathura, Uttar Pradesh",
+            "vehicle_numbers": "UP-85-AT-9988,HR-26-Z-1122",
+            "vehicle_make": "Honda",
+            "vehicle_model": "CB Shine",
+            "driver_name": "Ramesh Kumar",
+            "driver_contact_no": "DL-UP85-2020-001928",
             "accident_date_time": "2025-05-12T14:30:00",
             "loss_location": "near Kosi Kalan, NH-2",
-            "vehicle_numbers": "UP-85-AT-9988,HR-26-Z-1122",
+            "accident_location_city": "Mathura",
+            "accident_location_state": "Uttar Pradesh",
             "vehicle_types": "Motorcycle,Truck",
             "parties_involved": "Ramesh Kumar (Rider),Suresh Singh (Truck Driver)",
             "injury_or_death": "Ramesh Kumar suffered head injuries, declared dead on arrival at District Hospital",
@@ -238,29 +323,22 @@ def pull_claims_from_quest(db: Session = Depends(get_db)):
             "claim_id": "TP-RCU-MH-00921/2025",
             "policy_information": "POL-112233-2025",
             "supporting_information": "First claim on this policy. Zero prior claim history.",
+            "insured_name": "Vijay Salvi",
+            "insured_address": "Lonavala, Pune, Maharashtra",
+            "vehicle_numbers": "MH-12-AB-5678",
+            "vehicle_make": "Hyundai",
+            "vehicle_model": "Creta 1.5 SX",
+            "driver_name": "Vijay Salvi",
             "accident_date_time": "2025-06-18T08:15:00",
             "loss_location": "Expressway, near Lonavala",
-            "vehicle_numbers": "MH-12-AB-5678",
+            "accident_location_city": "Pune",
+            "accident_location_state": "Maharashtra",
             "vehicle_types": "Car",
             "parties_involved": "Vijay Salvi (Driver / Owner)",
             "injury_or_death": "No injuries reported. Vehicle bumper and headlight damaged.",
             "FIR_cause_narrative": "The car MH-12-AB-5678 was traveling towards Mumbai when a dog suddenly crossed the highway. The driver swerved and hit the divider, causing front-end damage. Police report confirmed dog carcass on road and matching skid marks.",
             "police_station": "Lonavala Highway PS",
             "district_state": "Pune, Maharashtra"
-        },
-        {
-            "claim_id": "TP-RCU-DL-00104/2025",
-            "policy_information": "POL-445566-2025",
-            "supporting_information": "Policy renewed 3 days prior to the reported accident date.",
-            "accident_date_time": "2025-04-05T23:10:00",
-            "loss_location": "Outer Ring Road, near Rohini Sec-3",
-            "vehicle_numbers": "DL-3C-XY-1234,HR-55-A-0012",
-            "vehicle_types": "Car,Tractor",
-            "parties_involved": "Ankit Gupta (Driver),Jagpreet Singh (Tractor Driver)",
-            "injury_or_death": "Ankit Gupta suffered minor leg fracture, admitted to Max Hospital.",
-            "FIR_cause_narrative": "A car DL-3C-XY-1234 driven by Ankit Gupta collided with an agricultural tractor HR-55-A-0012 carrying building materials on the Outer Ring Road. Car front smashed. Tractor driver fled the spot.",
-            "police_station": "Rohini Sector-3 PS",
-            "district_state": "North West Delhi, Delhi"
         }
     ]
     
@@ -268,39 +346,9 @@ def pull_claims_from_quest(db: Session = Depends(get_db)):
     for c in quest_claims:
         existing = db.query(Case).filter(Case.claim_id == c["claim_id"]).first()
         if not existing:
-            confidence = {
-                "claim_id": 1.0,
-                "policy_information": 0.98,
-                "supporting_information": 0.95,
-                "accident_date_time": 0.96,
-                "loss_location": 0.95,
-                "vehicle_numbers": 0.97,
-                "vehicle_types": 0.96,
-                "parties_involved": 0.94,
-                "injury_or_death": 0.95,
-                "FIR_cause_narrative": 0.98,
-                "police_station": 0.96,
-                "district_state": 0.97
-            }
-            
-            db_case = Case(
-                claim_id=c["claim_id"],
-                policy_information=c["policy_information"],
-                supporting_information=c["supporting_information"],
-                accident_date_time=c["accident_date_time"],
-                loss_location=c["loss_location"],
-                vehicle_numbers=c["vehicle_numbers"],
-                vehicle_types=c["vehicle_types"],
-                parties_involved=c["parties_involved"],
-                injury_or_death=c["injury_or_death"],
-                FIR_cause_narrative=c["FIR_cause_narrative"],
-                police_station=c["police_station"],
-                district_state=c["district_state"],
-                confidence_scores=json.dumps(confidence),
-                confirmed=False,
-                status="Pending Review",
-                risk_level="Pending Review"
-            )
+            confidence = {"claim_id": 1.0, "policy_information": 0.98}
+            db_case = Case(claim_id=c["claim_id"])
+            save_facts_to_case_model(db_case, c, confidence)
             db.add(db_case)
             db.commit()
             db.refresh(db_case)
@@ -319,113 +367,145 @@ def pull_claims_from_quest(db: Session = Depends(get_db)):
         "claims": imported_claims
     }
 
+@app.post("/api/cases/load-sample-presets")
+def load_universal_sompo_sample_presets(db: Session = Depends(get_db)):
+    """
+    Parses and loads the 4 real sample case ZIP packages (CL26140317, CL26148443, CL26160678, CL26166635)
+    from the samples/ directory into the database.
+    """
+    imported = []
+    if not os.path.exists(SAMPLES_DIR):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="samples/ directory not found on server."
+        )
+        
+    for fname in os.listdir(SAMPLES_DIR):
+        if fname.endswith(".zip"):
+            zpath = os.path.join(SAMPLES_DIR, fname)
+            facts, confidence = extractor.extract_facts_from_zip(zpath)
+            claim_no = facts.get("claim_id")
+            
+            existing = db.query(Case).filter(Case.claim_id == claim_no).first()
+            if not existing:
+                db_case = Case(claim_id=claim_no)
+                save_facts_to_case_model(db_case, facts, confidence)
+                db.add(db_case)
+                db.commit()
+                db.refresh(db_case)
+                
+                db.add(AuditLog(
+                    case_id=db_case.id,
+                    action="Sample Case Loaded",
+                    details=f"Loaded real Universal Sompo sample case archive '{fname}' with 30-header facts."
+                ))
+                db.commit()
+            else:
+                save_facts_to_case_model(existing, facts, confidence)
+                db.commit()
+                
+            imported.append(claim_no)
+                
+    return {
+        "success": True,
+        "message": f"Successfully loaded {len(imported)} real Universal Sompo sample cases from ZIP archives.",
+        "claims": imported
+    }
+
 @app.post("/api/cases/upload-excel")
 async def upload_excel_claims(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Parses the uploaded predefined Excel template, processes single or multiple claim records,
-    and stores them in the case store database.
-    """
     filename = file.filename
     if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file format. Please upload an Excel file (.xlsx)."
+            detail="Invalid file format. Please upload an Excel file (.xlsx or .xls)."
         )
         
     temp_path = os.path.join(UPLOAD_DIR, f"upload_{filename}")
     try:
-        # Save Excel temporarily
         with open(temp_path, "wb") as f:
             f.write(await file.read())
             
-        # Parse Excel using pandas
         df = pd.read_excel(temp_path)
-        
-        required_headers = [
-            "Claim Number", "Policy Information", "Accident Date", "Accident Time", 
-            "Accident Location", "District State", "Police Station", "Vehicle Registration Numbers",
-            "Vehicle Types", "Involved Parties", "Injury or Death", "Claim Narrative", "Supporting Information"
-        ]
-        
-        # Verify headers loosely
-        for rh in required_headers:
-            if rh not in df.columns:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Template mismatch. Column '{rh}' is missing from the Excel file."
-                )
-                
         imported_claims = []
+        
+        def get_val(row, *keys):
+            for k in keys:
+                for col in row.index:
+                    if k.lower() in str(col).strip().lower():
+                        v = str(row[col])
+                        if v and v.lower() != "nan":
+                            return v.strip()
+            return None
+
         for idx, row in df.iterrows():
-            claim_no = str(row.get("Claim Number", "")).strip()
-            if not claim_no or claim_no == "nan":
-                continue  # Skip rows without claim number
+            claim_no = get_val(row, "Claim No", "Claim Number", "Claim ID")
+            if not claim_no:
+                continue
                 
-            # Check if claim_id already exists
             existing = db.query(Case).filter(Case.claim_id == claim_no).first()
-            if existing:
-                continue  # Skip duplicates
-                
-            # Compile accident date & time
-            acc_date = str(row.get("Accident Date", "")).strip()
-            acc_time = str(row.get("Accident Time", "")).strip()
-            date_time_str = None
-            if acc_date and acc_date != "nan":
-                date_time_str = acc_date.split(" ")[0] # extract date if datetime object
-                if acc_time and acc_time != "nan":
-                    date_time_str += "T" + acc_time
-                    
-            confidence = {
-                "claim_id": 1.0,
-                "policy_information": 1.0,
-                "supporting_information": 0.9,
-                "accident_date_time": 0.9,
-                "loss_location": 0.9,
-                "vehicle_numbers": 0.9,
-                "vehicle_types": 0.9,
-                "parties_involved": 0.9,
-                "injury_or_death": 0.9,
-                "FIR_cause_narrative": 0.9,
-                "police_station": 0.9,
-                "district_state": 0.9
+            
+            facts = {
+                "claim_id": claim_no,
+                "policy_information": get_val(row, "Policy Information", "Policy No"),
+                "insured_name": get_val(row, "Insured Name"),
+                "insured_address": get_val(row, "Insured Address"),
+                "insured_contact_no": get_val(row, "Insured contact no", "Insured Contact"),
+                "vehicle_numbers": [get_val(row, "Vehicle Registration Numbers", "Vehicle No", "Vehicle Registration") or "VEHICLE-UNREGISTERED"],
+                "vehicle_make": get_val(row, "Vehicle Make", "Make"),
+                "vehicle_model": get_val(row, "Vehicle Model", "Model"),
+                "driver_name": get_val(row, "Driver Name"),
+                "driver_contact_no": get_val(row, "Driver contact no", "DL Number"),
+                "spot_of_accident": get_val(row, "Spot of Accident", "Accident Spot"),
+                "accident_date_time": get_val(row, "Accident Date", "Date of Accident"),
+                "accident_location_city": get_val(row, "Accident Location City", "City"),
+                "accident_location_state": get_val(row, "Accident Location State", "State"),
+                "accident_location_region": get_val(row, "Accident Location Region", "Region"),
+                "FIR_cause_narrative": get_val(row, "Cause of accident/ Nature of loss", "Claim Narrative", "Cause of accident"),
+                "intimation_date": get_val(row, "Intimation Date"),
+                "fir_date": get_val(row, "FIR Date"),
+                "fir_time": get_val(row, "FIR Time"),
+                "police_station": get_val(row, "Police Station Name", "Police Station"),
+                "police_station_district": get_val(row, "Police Station District"),
+                "state": get_val(row, "State"),
+                "no_of_occupants": get_val(row, "No of occupants"),
+                "news_check": get_val(row, "News check"),
+                "social_media_check": get_val(row, "Social Media Check"),
+                "past_record_vehicle": get_val(row, "Past record of vehicle"),
+                "call_112_check": get_val(row, "Call on 112"),
+                "call_108_check": get_val(row, "Call on 108"),
+                "hospital_name": get_val(row, "Hospital Name"),
+                "crime_check": get_val(row, "Crime Check"),
+                "io_name": get_val(row, "IO Name"),
+                "supporting_information": get_val(row, "Supporting Information")
             }
             
-            db_case = Case(
-                claim_id=claim_no,
-                policy_information=None if str(row.get("Policy Information")) == "nan" else str(row.get("Policy Information")).strip(),
-                supporting_information=None if str(row.get("Supporting Information")) == "nan" else str(row.get("Supporting Information")).strip(),
-                accident_date_time=date_time_str,
-                loss_location=None if str(row.get("Accident Location")) == "nan" else str(row.get("Accident Location")).strip(),
-                vehicle_numbers=None if str(row.get("Vehicle Registration Numbers")) == "nan" else str(row.get("Vehicle Registration Numbers")).strip(),
-                vehicle_types=None if str(row.get("Vehicle Types")) == "nan" else str(row.get("Vehicle Types")).strip(),
-                parties_involved=None if str(row.get("Involved Parties")) == "nan" else str(row.get("Involved Parties")).strip(),
-                injury_or_death=None if str(row.get("Injury or Death")) == "nan" else str(row.get("Injury or Death")).strip(),
-                FIR_cause_narrative=None if str(row.get("Claim Narrative")) == "nan" else str(row.get("Claim Narrative")).strip(),
-                police_station=None if str(row.get("Police Station")) == "nan" else str(row.get("Police Station")).strip(),
-                district_state=None if str(row.get("District State")) == "nan" else str(row.get("District State")).strip(),
-                confidence_scores=json.dumps(confidence),
-                confirmed=False,
-                status="Pending Review",
-                risk_level="Pending Review"
-            )
-            db.add(db_case)
-            db.commit()
-            db.refresh(db_case)
+            full_facts, confidence = extractor.fill_defaults_for_facts(facts)
             
-            db.add(AuditLog(
-                case_id=db_case.id,
-                action="Excel Ingestion",
-                details=f"Claim records imported successfully from file: '{filename}'."
-            ))
-            db.commit()
+            if not existing:
+                db_case = Case(claim_id=claim_no)
+                save_facts_to_case_model(db_case, full_facts, confidence)
+                db.add(db_case)
+                db.commit()
+                db.refresh(db_case)
+                db.add(AuditLog(
+                    case_id=db_case.id,
+                    action="Excel Ingestion",
+                    details=f"Claim imported from Tera Bot Excel workbook '{filename}'."
+                ))
+                db.commit()
+            else:
+                save_facts_to_case_model(existing, full_facts, confidence)
+                db.commit()
+                
             imported_claims.append(claim_no)
             
         return {
             "success": True,
-            "message": f"Successfully processed Excel upload. Ingested {len(imported_claims)} claims.",
+            "message": f"Successfully processed Excel file '{filename}'. Ingested/updated {len(imported_claims)} claims.",
             "claims": imported_claims
         }
     except HTTPException as he:
@@ -435,6 +515,53 @@ async def upload_excel_claims(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to read claim template contents: {str(e)}"
+        )
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@app.post("/api/cases/ingest-zip", response_model=schemas.IngestionFactsResponse)
+async def ingest_claim_zip(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Parses an uploaded Universal Sompo sample case ZIP package."""
+    filename = file.filename
+    if not filename.endswith(".zip"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file format. Please upload a ZIP archive (.zip)."
+        )
+        
+    temp_path = os.path.join(UPLOAD_DIR, f"temp_zip_{filename}")
+    try:
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+            
+        facts, confidence = extractor.extract_facts_from_zip(temp_path)
+        claim_no = facts.get("claim_id")
+        
+        db_case = db.query(Case).filter(Case.claim_id == claim_no).first()
+        if not db_case:
+            db_case = Case(claim_id=claim_no)
+            save_facts_to_case_model(db_case, facts, confidence)
+            db.add(db_case)
+            db.commit()
+            db.refresh(db_case)
+            
+            db.add(AuditLog(
+                case_id=db_case.id,
+                action="ZIP Ingestion",
+                details=f"Extracted intimation sheet and documents from archive '{filename}'."
+            ))
+            db.commit()
+            
+        return {"facts": facts, "confidence_scores": confidence}
+    except Exception as e:
+        logger.error(f"Error uploading zip: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process ZIP file: {str(e)}"
         )
     finally:
         if os.path.exists(temp_path):
@@ -450,25 +577,8 @@ def ingest_claim_text(req: schemas.CaseIngestTextRequest, db: Session = Depends(
         )
         
     facts, confidence = extractor.extract_facts_from_text(req.fir_text, req.claim_id)
-    
-    db_case = Case(
-        claim_id=req.claim_id,
-        policy_information=facts.get("policy_information"),
-        supporting_information=facts.get("supporting_information"),
-        accident_date_time=facts.get("accident_date_time"),
-        loss_location=facts.get("loss_location"),
-        vehicle_numbers=",".join(facts.get("vehicle_numbers", [])),
-        vehicle_types=",".join(facts.get("vehicle_types", [])),
-        parties_involved=",".join(facts.get("parties_involved", [])),
-        injury_or_death=facts.get("injury_or_death"),
-        FIR_cause_narrative=facts.get("FIR_cause_narrative"),
-        police_station=facts.get("police_station"),
-        district_state=facts.get("district_state"),
-        confidence_scores=json.dumps(confidence),
-        confirmed=False,
-        status="Pending Review",
-        risk_level="Pending Review"
-    )
+    db_case = Case(claim_id=req.claim_id)
+    save_facts_to_case_model(db_case, facts, confidence)
     db.add(db_case)
     db.commit()
     db.refresh(db_case)
@@ -480,25 +590,18 @@ def ingest_claim_text(req: schemas.CaseIngestTextRequest, db: Session = Depends(
     ))
     db.commit()
     
-    return {
-        "facts": facts,
-        "confidence_scores": confidence
-    }
+    return {"facts": facts, "confidence_scores": confidence}
 
 @app.post("/api/cases/ingest-file", response_model=schemas.IngestionFactsResponse)
 async def ingest_claim_file(
-    claim_id: str,
     file: UploadFile = File(...),
+    claim_id: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    existing = db.query(Case).filter(Case.claim_id == claim_id).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Claim ID {claim_id} already exists."
-        )
-        
-    content = ""
+    """
+    Universal File Ingestion Handler: Supports PDF (.pdf), Excel (.xlsx, .xls), and text (.txt).
+    If claim_id is not supplied, it is automatically extracted from document text.
+    """
     filename = file.filename
     temp_path = os.path.join(UPLOAD_DIR, f"temp_{filename}")
     
@@ -506,11 +609,22 @@ async def ingest_claim_file(
         with open(temp_path, "wb") as f:
             f.write(await file.read())
             
-        if filename.endswith(".pdf"):
+        if filename.endswith(".xlsx") or filename.endswith(".xls"):
+            # Excel handler
+            df = pd.read_excel(temp_path)
+            for _, row in df.iterrows():
+                extracted_no = str(row.get("Claim Number", row.get("Claim No ", ""))).strip()
+                if extracted_no and extracted_no != "nan":
+                    claim_id = extracted_no
+                    break
+            facts, confidence = extractor.extract_facts_from_text(f"Excel file: {filename}", claim_id or "EXCEL-CLAIM-01")
+        elif filename.endswith(".pdf"):
             content = extractor.extract_text_from_pdf(temp_path)
+            facts, confidence = extractor.extract_facts_from_text(content, claim_id or "")
         else:
             with open(temp_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
+            facts, confidence = extractor.extract_facts_from_text(content, claim_id or "")
     except Exception as e:
         logger.error(f"Error uploading file: {e}")
         raise HTTPException(
@@ -521,47 +635,28 @@ async def ingest_claim_file(
         if os.path.exists(temp_path):
             os.remove(temp_path)
             
-    if not content.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No readable text extracted from the document."
-        )
+    parsed_claim_no = facts.get("claim_id") or claim_id or ("CLAIM-" + str(hash(filename) % 100000))
+    facts["claim_id"] = parsed_claim_no
+    
+    db_case = db.query(Case).filter(Case.claim_id == parsed_claim_no).first()
+    if not db_case:
+        db_case = Case(claim_id=parsed_claim_no)
+        save_facts_to_case_model(db_case, facts, confidence)
+        db.add(db_case)
+        db.commit()
+        db.refresh(db_case)
         
-    facts, confidence = extractor.extract_facts_from_text(content, claim_id)
-    
-    db_case = Case(
-        claim_id=claim_id,
-        policy_information=facts.get("policy_information"),
-        supporting_information=facts.get("supporting_information"),
-        accident_date_time=facts.get("accident_date_time"),
-        loss_location=facts.get("loss_location"),
-        vehicle_numbers=",".join(facts.get("vehicle_numbers", [])),
-        vehicle_types=",".join(facts.get("vehicle_types", [])),
-        parties_involved=",".join(facts.get("parties_involved", [])),
-        injury_or_death=facts.get("injury_or_death"),
-        FIR_cause_narrative=facts.get("FIR_cause_narrative"),
-        police_station=facts.get("police_station"),
-        district_state=facts.get("district_state"),
-        confidence_scores=json.dumps(confidence),
-        confirmed=False,
-        status="Pending Review",
-        risk_level="Pending Review"
-    )
-    db.add(db_case)
-    db.commit()
-    db.refresh(db_case)
-    
-    db.add(AuditLog(
-        case_id=db_case.id,
-        action="Case Ingested",
-        details=f"Claim facts extracted from uploaded file: '{filename}'."
-    ))
-    db.commit()
-    
-    return {
-        "facts": facts,
-        "confidence_scores": confidence
-    }
+        db.add(AuditLog(
+            case_id=db_case.id,
+            action="Case Ingested",
+            details=f"Claim facts extracted from uploaded file '{filename}' for claim {parsed_claim_no}."
+        ))
+        db.commit()
+    else:
+        save_facts_to_case_model(db_case, facts, confidence)
+        db.commit()
+        
+    return {"facts": facts, "confidence_scores": confidence}
 
 @app.put("/api/cases/{claim_id}/confirm-facts", response_model=schemas.CaseResponse)
 def confirm_facts(
@@ -577,17 +672,7 @@ def confirm_facts(
             detail=f"Case with claim ID {claim_id} not found."
         )
         
-    case.policy_information = req.facts.policy_information
-    case.supporting_information = req.facts.supporting_information
-    case.accident_date_time = req.facts.accident_date_time
-    case.loss_location = req.facts.loss_location
-    case.vehicle_numbers = ",".join(req.facts.vehicle_numbers)
-    case.vehicle_types = ",".join(req.facts.vehicle_types)
-    case.parties_involved = ",".join(req.facts.parties_involved)
-    case.injury_or_death = req.facts.injury_or_death
-    case.police_station = req.facts.police_station
-    case.district_state = req.facts.district_state
-    case.FIR_cause_narrative = req.facts.FIR_cause_narrative
+    save_facts_to_case_model(case, req.facts.dict())
     case.confirmed = True
     case.status = "Searching"
     
@@ -599,7 +684,6 @@ def confirm_facts(
     db.commit()
     
     background_tasks.add_task(run_evidence_search_pipeline, case.id, db)
-    
     return case
 
 @app.post("/api/cases/{claim_id}/image", response_model=schemas.ImageMatchResponse)
@@ -658,10 +742,6 @@ def pushback_case_results_to_quest(
     claim_id: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Simulates sending the completed RCU/Investigator findings pack (relevance, mismatch flags,
-    summaries, and exported paths) back to the Quest Investigation Portal.
-    """
     case = db.query(Case).filter(Case.claim_id == claim_id).first()
     if not case:
         raise HTTPException(
@@ -679,7 +759,6 @@ def pushback_case_results_to_quest(
     case.pushback_status = "Pushed Successfully"
     case.pushback_timestamp = timestamp_str
     
-    # Save pushback transaction to audit log
     db.add(AuditLog(
         case_id=case.id,
         action="Quest API Pushback",
@@ -694,8 +773,26 @@ def pushback_case_results_to_quest(
         "pushback_timestamp": timestamp_str
     }
 
+@app.delete("/api/cases/clear-all")
+def clear_all_investigation_logs(db: Session = Depends(get_db)):
+    """Deletes all claim cases, evidence items, image matches, and investigation audit logs."""
+    try:
+        db.query(AuditLog).delete()
+        db.query(Evidence).delete()
+        db.query(ImageMatch).delete()
+        db.query(Case).delete()
+        db.commit()
+        return {"success": True, "message": "Successfully cleared all investigation logs and claim cases."}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error clearing logs: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear investigation logs: {str(e)}"
+        )
+
 @app.get("/api/cases", response_model=List[schemas.CaseResponse])
-def list_cases(db: Session = Depends(get_db)):
+def get_cases(db: Session = Depends(get_db)):
     return db.query(Case).order_by(Case.created_at.desc()).all()
 
 @app.get("/api/cases/{claim_id}", response_model=schemas.CaseDetailResponse)
@@ -759,6 +856,31 @@ def export_case_excel(claim_id: str, db: Session = Depends(get_db)):
         "claim_id": case.claim_id,
         "policy_information": case.policy_information,
         "supporting_information": case.supporting_information,
+        "insured_name": case.insured_name,
+        "insured_address": case.insured_address,
+        "insured_contact_no": case.insured_contact_no,
+        "vehicle_make": case.vehicle_make,
+        "vehicle_model": case.vehicle_model,
+        "driver_name": case.driver_name,
+        "driver_contact_no": case.driver_contact_no,
+        "spot_of_accident": case.spot_of_accident,
+        "accident_location_city": case.accident_location_city,
+        "accident_location_state": case.accident_location_state,
+        "accident_location_region": case.accident_location_region,
+        "intimation_date": case.intimation_date,
+        "fir_date": case.fir_date,
+        "fir_time": case.fir_time,
+        "police_station_district": case.police_station_district,
+        "state": case.state,
+        "no_of_occupants": case.no_of_occupants,
+        "news_check": case.news_check,
+        "social_media_check": case.social_media_check,
+        "past_record_vehicle": case.past_record_vehicle,
+        "call_112_check": case.call_112_check,
+        "call_108_check": case.call_108_check,
+        "hospital_name": case.hospital_name,
+        "crime_check": case.crime_check,
+        "io_name": case.io_name,
         "risk_level": case.risk_level,
         "overall_score": case.overall_score,
         "status": case.status,
@@ -832,6 +954,31 @@ def export_case_pdf(claim_id: str, db: Session = Depends(get_db)):
         "claim_id": case.claim_id,
         "policy_information": case.policy_information,
         "supporting_information": case.supporting_information,
+        "insured_name": case.insured_name,
+        "insured_address": case.insured_address,
+        "insured_contact_no": case.insured_contact_no,
+        "vehicle_make": case.vehicle_make,
+        "vehicle_model": case.vehicle_model,
+        "driver_name": case.driver_name,
+        "driver_contact_no": case.driver_contact_no,
+        "spot_of_accident": case.spot_of_accident,
+        "accident_location_city": case.accident_location_city,
+        "accident_location_state": case.accident_location_state,
+        "accident_location_region": case.accident_location_region,
+        "intimation_date": case.intimation_date,
+        "fir_date": case.fir_date,
+        "fir_time": case.fir_time,
+        "police_station_district": case.police_station_district,
+        "state": case.state,
+        "no_of_occupants": case.no_of_occupants,
+        "news_check": case.news_check,
+        "social_media_check": case.social_media_check,
+        "past_record_vehicle": case.past_record_vehicle,
+        "call_112_check": case.call_112_check,
+        "call_108_check": case.call_108_check,
+        "hospital_name": case.hospital_name,
+        "crime_check": case.crime_check,
+        "io_name": case.io_name,
         "risk_level": case.risk_level,
         "overall_score": case.overall_score,
         "status": case.status,
@@ -889,7 +1036,7 @@ def list_global_audit_logs(db: Session = Depends(get_db)):
     return db.query(AuditLog).order_by(AuditLog.timestamp.desc()).all()
 
 # Try mounting frontend dist directory as static files.
-FRONTEND_DIST_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+FRONTEND_DIST_DIR = os.path.join(ROOT_DIR, "frontend", "dist")
 
 @app.get("/", response_class=HTMLResponse)
 def index_fallback():

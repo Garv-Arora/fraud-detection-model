@@ -8,6 +8,140 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+const renderStructuredGptSummary = (summaryText) => {
+  if (!summaryText) return null;
+  const sections = summaryText.split(/###\s+/);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {sections.map((section, idx) => {
+        if (!section.trim()) return null;
+        const lines = section.trim().split('\n');
+        const header = lines[0].replace(/[*#]/g, '').trim();
+        const contentLines = lines.slice(1).join('\n').trim();
+
+        if (header.includes('Executive Web Search Summary') || header.includes('Key Observations')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFF5F5', border: '1px solid #F3D0D6', borderLeft: '5px solid var(--usgi-red)', padding: '18px 22px', boxShadow: '0 4px 16px rgba(204,0,34,0.06)' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--usgi-red)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Shield size={18} /> Executive Web Search Summary
+              </h4>
+              <div style={{ fontSize: '13px', color: '#1E293B', lineHeight: '1.6' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const cleanLine = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!cleanLine) return null;
+                  return (
+                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ color: 'var(--usgi-red)', fontWeight: 'bold' }}>•</span>
+                      <span dangerouslySetInnerHTML={{ __html: cleanLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        if (header.includes('Objectivity') || header.includes('Fact Verification')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '18px 22px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={18} style={{ color: '#10B981' }} /> Objectivity & Fact Verification
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+
+                  const isVerified = clean.toLowerCase().includes('verified') || clean.toLowerCase().includes('matched') || clean.toLowerCase().includes('corroborated');
+                  const isContradiction = clean.toLowerCase().includes('contradiction') || clean.toLowerCase().includes('discrepancy');
+
+                  const statusBg = isContradiction ? '#FEE2E2' : isVerified ? '#D1FAE5' : '#FEF3C7';
+                  const statusColor = isContradiction ? '#CC0022' : isVerified ? '#047857' : '#B45309';
+
+                  return (
+                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span className="badge" style={{ background: statusBg, color: statusColor, fontSize: '10px' }}>
+                          {isContradiction ? 'Contradiction' : isVerified ? 'Verified Match' : 'Unverified'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#1E293B', lineHeight: '1.4' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        if (header.includes('Key Web Evidence') || header.includes('Bulletins')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '18px 22px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Search size={18} style={{ color: 'var(--usgi-red)' }} /> Key Web Evidence Bulletins
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const match = line.match(/\[(.*?)\]\((.*?)\)\s*[-:]?\s*(.*)/);
+                  if (match) {
+                    const [, title, url, desc] = match;
+                    return (
+                      <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', marginBottom: '4px' }}>
+                            {title}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{desc}</div>
+                        </div>
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          View Source <ExternalLink size={12} />
+                        </a>
+                      </div>
+                    );
+                  }
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+                  return (
+                    <div key={lIdx} style={{ fontSize: '12.5px', color: '#1E293B', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        if (header.includes('Risk Highlights') || header.includes('Highlights')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderLeft: '5px solid #F59E0B', padding: '18px 22px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#B45309', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={18} /> RCU Investigation Risk Highlights
+              </h4>
+              <div style={{ fontSize: '13px', color: '#78350F', lineHeight: '1.6' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean || clean.startsWith('Disclaimer')) return null;
+                  return (
+                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ color: '#B45309', fontWeight: 'bold' }}>⚠️</span>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        return null;
+      })}
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px' }}>
+        *Disclaimer: This summary is generated dynamically using OpenAI GPT evidence analysis of crawled search index data. All decisions remain the responsibility of authorized Universal Sompo investigators.*
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [currentView, setCurrentView] = useState('list'); // list, ingest, detail
   const [cases, setCases] = useState([]);
@@ -17,6 +151,13 @@ export default function App() {
   
   // Role selector state
   const [activeRole, setActiveRole] = useState('Investigator'); // Investigator, RCU Team
+  const [errorPageMode, setErrorPageMode] = useState('branded'); // 'bare' or 'branded'
+  
+  // Search, Filter, and Scoring Modal states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [riskFilter, setRiskFilter] = useState('ALL');
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoreModalData, setScoreModalData] = useState(null);
   
   // Text Ingestion states
   const [claimId, setClaimId] = useState('');
@@ -124,6 +265,52 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     }
   };
 
+  // Load Real Universal Sompo Sample Cases (4 ZIP archives)
+  const handleLoadSampleCases = async () => {
+    setSyncingQuest(true);
+    setImportStatus(null);
+    try {
+      const res = await fetch(`${API_BASE}/cases/load-sample-presets`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setImportStatus(data.message);
+        fetchCases();
+      } else {
+        alert("Failed to load sample cases.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load sample cases. Verify server connection.");
+    } finally {
+      setSyncingQuest(false);
+    }
+  };
+
+  // Clear All Investigation Logs & Claims
+  const handleClearAllLogs = async () => {
+    if (!window.confirm("Are you sure you want to delete all investigation logs, evidence items, and claim records? This cannot be undone.")) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/cases/clear-all`, { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        setImportStatus(data.message);
+        setCases([]);
+        setCurrentView('list');
+      } else {
+        alert("Failed to clear investigation logs.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error occurred while clearing logs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle Text Ingestion Submit
   const handleTextIngestion = async (e) => {
     e.preventDefault();
@@ -152,34 +339,55 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     }
   };
 
-  // Handle File Ingestion Submit (PDF/Text)
-  const handleFileIngestion = async (e) => {
-    e.preventDefault();
-    if (!claimId || !uploadedFile) return alert("Please enter Claim Number and select an FIR file");
+  // Universal PDF & Excel File Ingestion (Auto Claim ID & 30-Header Extraction)
+  const handleUniversalFileUpload = async (fileToUpload) => {
+    const targetFile = fileToUpload || uploadedFile;
+    if (!targetFile) return alert("Please select a PDF, Excel, or ZIP document to upload.");
     
     setLoading(true);
     const formData = new FormData();
-    formData.append("file", uploadedFile);
+    formData.append("file", targetFile);
     
     try {
-      const res = await fetch(`${API_BASE}/cases/ingest-file?claim_id=${encodeURIComponent(claimId)}`, {
+      let endpoint = `${API_BASE}/cases/ingest-file`;
+      if (targetFile.name.endsWith('.xlsx') || targetFile.name.endsWith('.xls')) {
+        endpoint = `${API_BASE}/cases/upload-excel`;
+      } else if (targetFile.name.endsWith('.zip')) {
+        endpoint = `${API_BASE}/cases/ingest-zip`;
+      }
+      
+      const res = await fetch(endpoint, {
         method: 'POST',
         body: formData
       });
+      
       if (res.ok) {
         const data = await res.json();
-        setExtractedFacts(data.facts);
-        setConfidenceScores(data.confidence_scores);
+        if (data.facts) {
+          setExtractedFacts(data.facts);
+          setConfidenceScores(data.confidence_scores || {});
+        } else if (data.message) {
+          setImportStatus(data.message);
+          fetchCases();
+          setCurrentView('list');
+        }
       } else {
         const err = await res.json();
-        alert(err.detail || "File upload ingestion failed");
+        alert(err.detail || "File processing failed");
       }
     } catch (err) {
       console.error(err);
-      alert("Network error occurred during file ingestion.");
+      alert("Network error occurred during file upload.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle File Ingestion Submit (PDF/Text)
+  const handleFileIngestion = async (e) => {
+    e.preventDefault();
+    if (!uploadedFile) return alert("Please select a document file");
+    handleUniversalFileUpload(uploadedFile);
   };
 
   // Handle Excel claims upload template
@@ -371,19 +579,32 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
 
   return (
     <div className="dashboard-container">
-      {/* Top Role Indicator Bar */}
-      <div className="role-banner">
-        <UserCheck size={14} />
-        <span>Universal Sompo RCU Security Layer: Active Role — {activeRole}</span>
+      {/* Official Top Utility Bar matching universalsompo.com */}
+      <div className="top-utility-bar">
+        <div className="jv-badge">
+          <span>IRDAI Regn. No. 134</span> | CIN: U66010MH2007PLC166770 | Joint Venture of Indian Bank, IOB, Karnataka Bank, Dabur Investments & Sompo Japan
+        </div>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <span>Toll Free Helpline: <strong style={{ color: '#FFFFFF' }}>1800 22 4030</strong></span>
+          <span>RCU Desk: <strong style={{ color: '#FFFFFF' }}>info@universalsompo.co.in</strong></span>
+        </div>
       </div>
 
-      {/* Header */}
+      {/* Role Indicator Banner */}
+      <div className="role-banner">
+        <UserCheck size={14} />
+        <span>UNIVERSAL SOMPO RCU SECURITY PORTAL • ACTIVE ROLE: {activeRole.toUpperCase()}</span>
+      </div>
+
+      {/* Main Brand Header */}
       <header className="header">
         <div className="logo-section">
-          <Shield size={28} className="text-primary" style={{ color: 'var(--primary)', filter: 'drop-shadow(0 0 8px var(--primary))' }} />
+          <div className="logo-icon-container">
+            <Shield size={24} style={{ color: '#FFFFFF' }} />
+          </div>
           <div>
-            <h1 className="logo-text">Universal Sompo</h1>
-            <div className="logo-sub">AI Claim Evidence Finder</div>
+            <h1 className="logo-text">Universal <span>Sompo</span></h1>
+            <div className="logo-sub">AI Claim Evidence Finder & Tera Bot Platform</div>
           </div>
         </div>
 
@@ -427,18 +648,24 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
           <div>
             {/* Quest API Sync Card (Default primary ingestion method) */}
             {activeRole === 'Investigator' && (
-              <div className="card" style={{ borderLeft: '4px solid var(--primary)', background: 'linear-gradient(135deg, rgba(31,78,121,0.08) 0%, rgba(18,18,28,0.7) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', marginBottom: '32px' }}>
+              <div className="card" style={{ borderLeft: '5px solid var(--primary)', background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%)', border: '1px solid #F3D0D6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <Database size={32} style={{ color: 'var(--primary)', filter: 'drop-shadow(0 0 4px var(--primary))' }} />
+                  <Database size={32} style={{ color: 'var(--primary)' }} />
                   <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '4px' }}>Quest Portal Claims Integration</h3>
+                    <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '4px', color: 'var(--text-primary)' }}>Quest Portal Claims Integration</h3>
                     <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Synchronize active Own Damage (OD) claims and FIR files from Quest automatically via API connection.</p>
                   </div>
                 </div>
-                <button className="btn btn-primary" onClick={handleQuestApiPull} disabled={syncingQuest}>
-                  {syncingQuest ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-                  {syncingQuest ? "Synchronizing..." : "Sync Quest Claims"}
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn btn-primary" onClick={handleQuestApiPull} disabled={syncingQuest}>
+                    {syncingQuest ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                    {syncingQuest ? "Synchronizing..." : "Sync Quest Claims"}
+                  </button>
+                  <button className="btn btn-secondary" onClick={handleLoadSampleCases} disabled={syncingQuest}>
+                    <FileText size={16} />
+                    Load 4 Sample ZIP Cases
+                  </button>
+                </div>
               </div>
             )}
 
@@ -449,11 +676,58 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '16px', flexWrap: 'wrap' }}>
               <h2>Quest Evidence Investigation Logs</h2>
-              <button className="btn btn-secondary" onClick={fetchCases} disabled={loading}>
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '12px' }} onClick={() => setShowScoreModal(true)}>
+                  <HelpCircle size={15} style={{ color: 'var(--usgi-red)' }} /> Algorithm Breakdown
+                </button>
+                <button className="btn btn-secondary" onClick={fetchCases} disabled={loading}>
+                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
+                </button>
+                <button className="btn" style={{ background: '#FEE2E2', color: '#CC0022', border: '1px solid #FCA5A5', padding: '8px 16px', borderRadius: '30px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={handleClearAllLogs} disabled={loading}>
+                  <Trash2 size={16} /> Clear All Logs
+                </button>
+              </div>
+            </div>
+
+            {/* Instant Search & Risk Level Filter Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '16px', flexWrap: 'wrap', background: '#FFFFFF', padding: '12px 16px', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text"
+                  className="form-control"
+                  placeholder="Instant filter by Claim ID, Insured Name, Vehicle Reg, Police Station..."
+                  style={{ paddingLeft: '40px', borderRadius: '30px', fontSize: '13px' }}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Filter Risk:</span>
+                <div style={{ display: 'flex', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '30px', padding: '2px' }}>
+                  {['ALL', 'HIGH REVIEW', 'MEDIUM REVIEW', 'LOW RISK'].map((f) => (
+                    <button 
+                      key={f}
+                      className="btn"
+                      style={{
+                        padding: '4px 12px',
+                        fontSize: '11px',
+                        borderRadius: '24px',
+                        background: riskFilter === f ? 'var(--usgi-red)' : 'transparent',
+                        color: riskFilter === f ? '#FFFFFF' : 'var(--text-secondary)',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setRiskFilter(f)}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {loading && cases.length === 0 ? (
@@ -490,16 +764,25 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                         <th>Policy Info</th>
                         <th>Location</th>
                         <th>Accident Date</th>
-                        <th>Evidence Score</th>
+                        <th>Corroboration Score</th>
                         <th>Risk Assessment</th>
                         <th>Quest Sync</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {cases.map((c) => (
+                      {cases.filter(c => {
+                        const matchesRisk = riskFilter === 'ALL' || c.risk_level === riskFilter;
+                        const q = searchQuery.toLowerCase().trim();
+                        const matchesSearch = !q || 
+                          (c.claim_id && c.claim_id.toLowerCase().includes(q)) ||
+                          (c.insured_name && c.insured_name.toLowerCase().includes(q)) ||
+                          (c.vehicle_numbers && c.vehicle_numbers.toLowerCase().includes(q)) ||
+                          (c.police_station && c.police_station.toLowerCase().includes(q));
+                        return matchesRisk && matchesSearch;
+                      }).map((c) => (
                         <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => handleViewCase(c.claim_id)}>
-                          <td style={{ fontWeight: 'bold' }}>{c.claim_id}</td>
+                          <td style={{ fontWeight: 'bold', color: 'var(--usgi-red)' }}>{c.claim_id}</td>
                           <td>{c.policy_information || '—'}</td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -513,8 +796,15 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                               {c.accident_date_time ? c.accident_date_time.split('T')[0] : '—'}
                             </div>
                           </td>
-                          <td style={{ fontWeight: 'bold' }}>
-                            {c.status === 'Completed' ? `${c.overall_score.toFixed(2)}` : '—'}
+                          <td style={{ fontWeight: '800' }}>
+                            {c.status === 'Completed' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ color: c.overall_score >= 0.8 ? 'var(--color-low)' : c.overall_score >= 0.55 ? '#D97706' : 'var(--usgi-red)' }}>
+                                  {(c.overall_score * 100).toFixed(0)} / 100
+                                </span>
+                                <HelpCircle size={14} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setShowScoreModal(true); }} />
+                              </div>
+                            ) : '—'}
                           </td>
                           <td>
                             {c.status === 'Searching' ? (
@@ -593,34 +883,44 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                   </button>
                 </div>
 
-                {/* SECONDARY METHODS: Excel template uploader OR manual paste */}
+                {/* SECONDARY METHODS: Universal PDF/Excel File Upload OR Manual Paste */}
                 <h4 style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '10px' }}>Secondary Ingestion Options</h4>
                 
                 <div className="grid-2">
-                  {/* Excel Upload Card */}
+                  {/* Universal PDF & Excel Upload Card */}
                   <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <h3>Excel Template Upload</h3>
+                        <h3>PDF & Excel Document Uploader</h3>
                         <a href={`${API_BASE}/templates/excel`} style={{ fontSize: '11px', color: 'var(--primary)', textDecoration: 'underline' }}>
-                          Download Template
+                          Template .xlsx
                         </a>
                       </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>Upload batch claims using the predefined Universal Sompo Excel sheet format.</p>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                        Upload PDF Intimation Sheets (`.pdf`), Tera Bot Excel Registries (`.xlsx`), or Case Archives (`.zip`). Claim IDs are extracted automatically.
+                      </p>
                       
-                      <div className="dropzone" style={{ padding: '40px 20px' }} onClick={() => document.getElementById('excel-file-input').click()}>
-                        <Upload size={30} className="dropzone-icon" />
+                      <div className="dropzone" style={{ padding: '36px 20px', borderStyle: 'dashed', cursor: 'pointer' }} onClick={() => document.getElementById('universal-file-input').click()}>
+                        <Upload size={32} className="dropzone-icon" style={{ color: 'var(--primary)', marginBottom: '8px' }} />
                         <div>
-                          <p style={{ fontSize: '13px', fontWeight: '600' }}>
-                            {excelFile ? excelFile.name : 'Select Claims template (.xlsx)'}
+                          <p style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>
+                            {uploadedFile ? uploadedFile.name : 'Select or Drag PDF / Excel file'}
                           </p>
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Supports .pdf, .xlsx, .xls, .zip, .txt</span>
                         </div>
-                        <input id="excel-file-input" type="file" style={{ display: 'none' }} accept=".xlsx" onChange={(e) => setExcelFile(e.target.files[0])} />
+                        <input id="universal-file-input" type="file" style={{ display: 'none' }} accept=".pdf,.xlsx,.xls,.zip,.txt" 
+                               onChange={(e) => {
+                                 const f = e.target.files[0];
+                                 if (f) {
+                                   setUploadedFile(f);
+                                   handleUniversalFileUpload(f);
+                                 }
+                               }} />
                       </div>
                     </div>
-                    <button className="btn btn-secondary" style={{ width: '100%', marginTop: '24px' }} onClick={handleExcelUpload} disabled={loading || !excelFile}>
-                      {loading ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} 
-                      Ingest Excel Template
+                    <button className="btn btn-secondary" style={{ width: '100%', marginTop: '20px' }} onClick={() => handleUniversalFileUpload(uploadedFile)} disabled={loading || !uploadedFile}>
+                      {loading ? <RefreshCw className="animate-spin" size={16} /> : <FileText size={16} />} 
+                      Parse PDF / Excel Document
                     </button>
                   </div>
 
@@ -958,25 +1258,10 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
               {/* Right Side: AI Summary & Evidence Tabs */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 
-                {/* 1. ADAAPT AI EVIDENCE SUMMARY MODULE CARD */}
+                {/* 1. RICH GPT AI EVIDENCE SUMMARY MODULE CARD */}
                 {currentCase.status === 'Completed' && currentCase.ai_summary && (
-                  <div className="ai-summary-card">
-                    <div className="ai-summary-title">
-                      <Shield size={18} style={{ color: 'var(--primary)' }} />
-                      <span>AI Evidence Discovery Summary</span>
-                    </div>
-                    <div className="ai-summary-content" dangerouslySetInnerHTML={{ 
-                      __html: currentCase.ai_summary
-                        .replace(/\n/g, '<br>')
-                        .replace(/### /g, '<h4>')
-                        .replace(/###/g, '</h4>')
-                        .replace(/\* \*\*/g, '<strong>')
-                        .replace(/\*\*: /g, '</strong>: ')
-                        .replace(/\* /g, '• ')
-                    }} />
-                    <div className="ai-summary-disclaimer">
-                      *Disclaimer: This summary is generated dynamically from crawled search index data. All decisions remain the responsibility of authorized Universal Sompo investigators.*
-                    </div>
+                  <div>
+                    {renderStructuredGptSummary(currentCase.ai_summary)}
                   </div>
                 )}
 
@@ -1001,49 +1286,66 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                     </button>
                   </div>
 
-                  {/* TAB 1: FACT PROFILE & SYNC STATUS */}
+                  {/* TAB 1: EXECUTIVE FACT PROFILE GRID */}
                   {detailTab === 'facts' && (
                     <div>
-                      <h4 style={{ marginBottom: '16px' }}>Normal Ingestion Profile Summary</h4>
-                      <div className="grid-2" style={{ gap: '20px' }}>
-                        <div style={{ padding: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-card)', borderRadius: '8px' }}>
-                          <h5 style={{ color: 'var(--primary)', marginBottom: '12px' }}>Quest Portal Integration</h5>
-                          <div className="metadata-grid">
-                            <span className="metadata-label">Claim Number:</span>
-                            <span className="metadata-value">{currentCase.claim_id}</span>
-                            <span className="metadata-label">Policy ID:</span>
-                            <span className="metadata-value">{currentCase.policy_information || 'N/A'}</span>
-                            <span className="metadata-label">Sync Status:</span>
-                            <span className="metadata-value" style={{ fontWeight: 'bold', color: currentCase.pushback_status.includes('Success') ? 'var(--color-low)' : 'var(--text-secondary)' }}>
-                              {currentCase.pushback_status}
-                            </span>
-                            {currentCase.pushback_timestamp && (
-                              <>
-                                <span className="metadata-label">Sync Time:</span>
-                                <span className="metadata-value" style={{ fontSize: '11px' }}>{currentCase.pushback_timestamp}</span>
-                              </>
-                            )}
+                      <h4 style={{ marginBottom: '16px', fontSize: '15px', fontWeight: '800' }}>Claim Facts Profile (30-Header RCU Schema)</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                        
+                        {/* Group 1: Policy & Claim Identification */}
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
+                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                            📋 Policy & Claim Identification
+                          </h5>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Claim ID</span><strong style={{ color: 'var(--usgi-red)' }}>{currentCase.claim_id}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Policy Information</span><strong>{currentCase.policy_information || 'POL-UNKNOWN'}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Intimation Date</span><strong>{currentCase.intimation_date || '—'}</strong></div>
                           </div>
                         </div>
 
-                        <div style={{ padding: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-card)', borderRadius: '8px' }}>
-                          <h5 style={{ color: 'var(--primary)', marginBottom: '12px' }}>Evidence Finder Output</h5>
-                          <div className="metadata-grid">
-                            <span className="metadata-label">Evidence Index:</span>
-                            <span className="metadata-value" style={{ fontWeight: 'bold' }}>{currentCase.overall_score.toFixed(2)} / 1.00</span>
-                            <span className="metadata-label">Threat Level:</span>
-                            <span className="metadata-value">{currentCase.risk_level}</span>
-                            <span className="metadata-label">Flagged Mismatches:</span>
-                            <span className="metadata-value" style={{ color: 'var(--color-high)', fontWeight: 'bold' }}>
-                              {currentCase.top_mismatches ? currentCase.top_mismatches.toUpperCase() : 'None'}
-                            </span>
+                        {/* Group 2: Vehicle & Driver Profile */}
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
+                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                            🚗 Vehicle & Driver Profile
+                          </h5>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Registered Vehicle(s)</span><strong style={{ color: '#047857' }}>🏎️ {currentCase.vehicle_numbers || '—'}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Vehicle Make & Model</span><strong>{currentCase.vehicle_make || '—'} {currentCase.vehicle_model || ''}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Parties / Driver Name</span><strong>{currentCase.driver_name || currentCase.parties_involved || currentCase.insured_name || '—'}</strong></div>
                           </div>
                         </div>
+
+                        {/* Group 3: Location & Police Jurisdiction */}
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
+                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                            📍 Location & Police Jurisdiction
+                          </h5>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Accident Location</span><strong>{currentCase.spot_of_accident || currentCase.loss_location || '—'}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>District / State</span><strong>{currentCase.district_state || currentCase.accident_location_city || '—'}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Accident Date / Time</span><strong>{currentCase.accident_date_time || '—'}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Police Station</span><strong>{currentCase.police_station || 'Police Station N/A'}</strong></div>
+                          </div>
+                        </div>
+
+                        {/* Group 4: Narrative & Investigation Notes */}
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
+                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                            📝 Narrative & Supporting Notes
+                          </h5>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Injuries / Casualties</span><strong style={{ color: currentCase.injury_or_death && !currentCase.injury_or_death.includes('No') ? '#CC0022' : 'var(--text-secondary)' }}>{currentCase.injury_or_death || 'No injuries reported'}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Supporting Information</span><span style={{ fontSize: '12px', color: '#334155' }}>{currentCase.supporting_information || '—'}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>FIR Cause Narrative</span><span style={{ fontSize: '12px', color: '#334155' }}>{currentCase.FIR_cause_narrative || '—'}</span></div>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   )}
 
-                  {/* TAB 2: EVIDENCE LINKS (WITH FB/IG SOCIAL TAGS) */}
+                  {/* TAB 2: EVIDENCE LINKS WITH ENHANCED SCORES */}
                   {detailTab === 'evidence' && (
                     <div>
                       {currentCase.status === 'Searching' ? (
@@ -1052,14 +1354,22 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                           <p>Executing parallel search & scoring engine...</p>
                         </div>
                       ) : !currentCase.evidences || currentCase.evidences.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                          <Search size={32} style={{ marginBottom: '12px' }} />
-                          <p>No public evidence logs found. Initiate search by confirming claim facts.</p>
+                        <div style={{ textAlign: 'center', padding: '40px 20px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                          <Search size={36} style={{ color: 'var(--usgi-red)', marginBottom: '12px' }} />
+                          <h4 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '8px', color: '#1E293B' }}>
+                            0 Case-Specific Public Web Records Found
+                          </h4>
+                          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '540px', margin: '0 auto 14px auto', lineHeight: '1.5' }}>
+                            Broad web search engines (Google News / DuckDuckGo / Bing) returned <strong>0 public web pages</strong> specifically matching vehicle registration <strong>{currentCase.vehicle_numbers || 'N/A'}</strong> or claimant/driver <strong>{currentCase.driver_name || currentCase.parties_involved || currentCase.insured_name || 'N/A'}</strong>.
+                          </p>
+                          <div style={{ display: 'inline-block', background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E', padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}>
+                            ℹ️ Standard RCU Finding: Local or private road incidents often have zero digital media footprint. Physical field verification recommended.
+                          </div>
                         </div>
                       ) : (
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h4>Ranked Search Results (Top 10)</h4>
+                            <h4>Ranked Search Results (Top {currentCase.evidences.length})</h4>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>crawled and deduped from broad web search</span>
                           </div>
                           
@@ -1070,7 +1380,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                                   <th style={{ width: '50px' }}>Rank</th>
                                   <th style={{ width: '100px' }}>Source</th>
                                   <th>Evidence Title & URL</th>
-                                  <th style={{ width: '70px', textAlign: 'center' }}>Score</th>
+                                  <th style={{ width: '80px', textAlign: 'center' }}>Score</th>
                                   <th>Matching Rationale</th>
                                 </tr>
                               </thead>
@@ -1254,8 +1564,76 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
             </div>
           </div>
         )}
-
       </main>
+
+      {/* Score Calculation Breakdown Modal */}
+      {showScoreModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(4px)' }}>
+          <div className="card" style={{ maxWidth: '680px', width: '100%', borderRadius: '16px', border: '2px solid var(--usgi-red)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid #F3D0D6', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--usgi-red)' }}>
+                <HelpCircle size={22} /> Multi-Factor Evidence Scoring Algorithm
+              </h3>
+              <button className="btn btn-secondary" style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px' }} onClick={() => setShowScoreModal(false)}>✕ Close</button>
+            </div>
+            
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+              Universal Sompo RCU evidence scores are calculated using a weighted multi-factor mathematical formula measuring factual alignment between extracted claim parameters and public web evidence.
+            </p>
+
+            <div className="table-container" style={{ marginBottom: '20px' }}>
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Scoring Parameter</th>
+                    <th>Weight</th>
+                    <th>Evaluation & Matching Criteria</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>🆔 Entity & Vehicle Match</td>
+                    <td><span className="badge badge-medium" style={{ background: '#FEF3C7', color: '#B45309' }}>30%</span></td>
+                    <td>Exact match of vehicle registration plate (e.g. UP-85-AT-9988), driver name, or insured identity.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>📖 Semantic Narrative Similarity</td>
+                    <td><span className="badge badge-medium" style={{ background: '#FEF3C7', color: '#B45309' }}>25%</span></td>
+                    <td>Cosine TF-IDF vector similarity between FIR narrative and public news article text.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>📅 Temporal Proximity</td>
+                    <td><span className="badge badge-medium" style={{ background: '#FEF3C7', color: '#B45309' }}>20%</span></td>
+                    <td>Time difference between accident timestamp and news publication date (≤24h = 100%).</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>📍 Spatial Feasibility</td>
+                    <td><span className="badge badge-medium" style={{ background: '#FEF3C7', color: '#B45309' }}>15%</span></td>
+                    <td>Loss spot, city, and district/state location alignment in public reports.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>🌐 Source Domain Authority</td>
+                    <td><span className="badge badge-medium" style={{ background: '#FEF3C7', color: '#B45309' }}>10%</span></td>
+                    <td>Whitelisted news portals (Jagran, Amar Ujala, Bhaskar) & verified public registries.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'var(--usgi-red)' }}>⚠️ Contradiction Penalty</td>
+                    <td><span className="badge badge-high">-20%</span></td>
+                    <td>Direct narrative contradiction penalty (e.g. stationary vehicle hit vs moving collision).</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ background: '#FFF9F9', border: '1px solid #F3D0D6', borderRadius: '10px', padding: '14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.6' }}>
+              <strong>Score Index Classification (0 - 100):</strong><br />
+              • <strong style={{ color: 'var(--color-low)' }}>80 – 100 Score</strong>: High Corroboration (Low Risk)<br />
+              • <strong style={{ color: '#D97706' }}>55 – 79 Score</strong>: Moderate Corroboration (Medium Review)<br />
+              • <strong style={{ color: 'var(--usgi-red)' }}>0 – 54 Score</strong>: Contradictory / Low Evidence (High Review)
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Footer Statement of Responsibility */}
       <footer style={{ borderTop: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 40px', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>

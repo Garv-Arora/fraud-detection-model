@@ -25,8 +25,8 @@ COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 # Copy backend files and configuration scripts
 COPY backend/ /app/backend/
 COPY run.py /app/
-COPY sample_fir.txt /app/
 COPY create_template.py /app/
+COPY samples/ /app/samples/
 
 # Generate the Excel upload template file
 RUN python create_template.py
