@@ -75,6 +75,27 @@ const renderStructuredGptSummary = (summaryText) => {
           );
         }
 
+        if (header.includes('Location') || header.includes('Feasibility')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '18px 22px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MapPin size={18} style={{ color: '#2563EB' }} /> Location & Spatial Feasibility Verification
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+                  return (
+                    <div key={lIdx} style={{ fontSize: '12.5px', color: '#1E293B', padding: '10px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
         if (header.includes('Key Web Evidence') || header.includes('Bulletins')) {
           return (
             <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '18px 22px' }}>

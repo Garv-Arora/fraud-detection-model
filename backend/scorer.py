@@ -513,6 +513,12 @@ PROVIDE A HIGHLY CONDENSED, OBJECTIVE EXECUTIVE REPORT IN MARKDOWN WITH THESE EX
   * **Vehicle Reg & Parties**: (Matched vs Unverified online)
   * **Police Station Records**: (Corroborated vs Pending)
 
+### 🗺️ Location & Spatial Feasibility Verification
+- Itemize location feasibility:
+  * **FIR Claimed Location**: Report exact spot mentioned in FIR and confirm if valid.
+  * **News Reported Location**: Report location stated in news articles vs FIR location.
+  * **Feasibility Audit**: Confirm whether road structure and landmarks match claimed accident spot.
+
 ### 🔍 Key Web Evidence Bulletins
 - List the top 3-4 most relevant web sources using verbatim URLs from search results, OR if 0 evidence found, explicitly state "No direct public web pages identified specifically referencing this claim."
 

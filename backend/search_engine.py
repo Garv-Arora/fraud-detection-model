@@ -135,8 +135,8 @@ def execute_single_query(query: str) -> List[Dict[str, Any]]:
 
     # 2. Try DuckDuckGo API
     try:
-        with DDGS() as ddgs:
-            results = ddgs.text(f"{query} road accident news", max_results=6)
+        ddgs = DDGS()
+        results = ddgs.text(f"{query} road accident news", max_results=6)
             if results:
                 for r in results:
                     url = r.get("href", "").strip()
