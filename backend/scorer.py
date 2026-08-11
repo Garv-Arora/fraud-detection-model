@@ -456,8 +456,8 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
     openai_key = os.getenv("OPENAI_API_KEY", "")
     openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
-    # Pre-select top evidence
-    top_evidences = sorted(evidences, key=lambda x: x.get("score", 0), reverse=True)[:6]
+    # Pre-select top high-confidence evidence (score >= 0.45)
+    top_evidences = [ev for ev in sorted(evidences, key=lambda x: x.get("score", 0), reverse=True) if ev.get("score", 0) >= 0.45][:6]
     evidence_desc = ""
     if top_evidences:
         for idx, ev in enumerate(top_evidences, 1):
