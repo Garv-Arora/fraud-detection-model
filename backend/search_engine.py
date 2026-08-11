@@ -137,29 +137,29 @@ def execute_single_query(query: str) -> List[Dict[str, Any]]:
     try:
         ddgs = DDGS()
         results = ddgs.text(f"{query} road accident news", max_results=6)
-            if results:
-                for r in results:
-                    url = r.get("href", "").strip()
-                    title = r.get("title", "")
-                    body = r.get("body", "")
-                    if url and is_incident_relevant(title, body, url) and verify_live_url(url):
-                        source = "Web"
-                        url_lower = url.lower()
-                        if "facebook.com" in url_lower:
-                            source = "Facebook"
-                        elif "instagram.com" in url_lower:
-                            source = "Instagram"
-                        elif any(d in url_lower for d in ["jagran", "amarujala", "bhaskar", "timesofindia", "ndtv", "news18"]):
-                            source = "News"
-                        
-                        formatted.append({
-                            "title": title,
-                            "url": url,
-                            "snippet": body,
-                            "publish_date": None,
-                            "query_used": query,
-                            "source": source
-                        })
+        if results:
+            for r in results:
+                url = r.get("href", "").strip()
+                title = r.get("title", "")
+                body = r.get("body", "")
+                if url and is_incident_relevant(title, body, url) and verify_live_url(url):
+                    source = "Web"
+                    url_lower = url.lower()
+                    if "facebook.com" in url_lower:
+                        source = "Facebook"
+                    elif "instagram.com" in url_lower:
+                        source = "Instagram"
+                    elif any(d in url_lower for d in ["jagran", "amarujala", "bhaskar", "timesofindia", "ndtv", "news18"]):
+                        source = "News"
+                    
+                    formatted.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": body,
+                        "publish_date": None,
+                        "query_used": query,
+                        "source": source
+                    })
     except Exception as e:
         logger.warning(f"DDGS API failed for '{query}': {e}")
 
