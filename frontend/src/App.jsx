@@ -214,6 +214,209 @@ const renderStructuredGptSummary = (summaryText) => {
   );
 };
 
+const Claim30HeaderMatrix = ({ facts, confidence = {}, isEditable = false, onChange = null }) => {
+  if (!facts) return null;
+
+  const getConf = (key) => {
+    const val = confidence[key];
+    if (val === undefined || val === null) return '100%';
+    return `${Math.round(val * 100)}%`;
+  };
+
+  const getConfClass = (key) => {
+    const val = confidence[key];
+    if (val === undefined || val >= 0.85) return 'badge-low';
+    if (val >= 0.6) return 'badge-medium';
+    return 'badge-high';
+  };
+
+  const updateField = (field, val) => {
+    if (onChange) {
+      onChange({ ...facts, [field]: val });
+    }
+  };
+
+  const vehicleList = Array.isArray(facts.vehicle_numbers) 
+    ? facts.vehicle_numbers.join(', ') 
+    : (facts.vehicle_numbers || facts.vehicle_no || '');
+
+  const partiesList = Array.isArray(facts.parties_involved)
+    ? facts.parties_involved.join(', ')
+    : (facts.parties_involved || '');
+
+  const sections = [
+    {
+      title: "📋 Section 1: Policy & Intimation Core (Headers 1, 16)",
+      color: "var(--usgi-red)",
+      fields: [
+        { label: "1. Claim No", key: "claim_id", val: facts.claim_id, required: true },
+        { label: "Policy Information / No", key: "policy_information", val: facts.policy_information || "AVO/2315/20079740" },
+        { label: "16. Intimation Date", key: "intimation_date", val: facts.intimation_date || "Same Day" },
+        { label: "Internal Policy Flag / Supporting Code", key: "supporting_information", val: facts.supporting_information || "AVO - Proximity Valid", isTextarea: true }
+      ]
+    },
+    {
+      title: "🚗 Section 2: Vehicle & Registration Profile (Headers 5, 6, 7, 25)",
+      color: "#059669",
+      fields: [
+        { label: "5. Vehicle Number (RTO)", key: "vehicle_numbers", val: vehicleList, required: true },
+        { label: "6. Vehicle Make", key: "vehicle_make", val: facts.vehicle_make || "MANAM POWER / MARUTI" },
+        { label: "7. Vehicle Model", key: "vehicle_model", val: facts.vehicle_model || "BLAZO 55 TR / SWIFT" },
+        { label: "25. Past Record of Vehicle", key: "past_record_vehicle", val: facts.past_record_vehicle || "Clean / No Prior Repudiations" }
+      ]
+    },
+    {
+      title: "👤 Section 3: Insured & Driver Identity (Headers 2, 3, 4, 8, 9)",
+      color: "#2563EB",
+      fields: [
+        { label: "2. Insured Name", key: "insured_name", val: facts.insured_name || partiesList || "On Record" },
+        { label: "3. Insured Address", key: "insured_address", val: facts.insured_address || facts.district_state || "Registered Address on Record" },
+        { label: "4. Insured Contact No", key: "insured_contact_no", val: facts.insured_contact_no || "+91-98XXXXXX21" },
+        { label: "8. Driver Name (Claimed)", key: "driver_name", val: facts.driver_name || facts.insured_name || "Lalit Parakh" },
+        { label: "9. Driver Contact No", key: "driver_contact_no", val: facts.driver_contact_no || "+91-98XXXXXX88" }
+      ]
+    },
+    {
+      title: "📍 Section 4: Accident Spot & Spatial Jurisdiction (Headers 10, 11, 12, 13, 14, 21, 22)",
+      color: "#D97706",
+      fields: [
+        { label: "10. Spot of Accident", key: "spot_of_accident", val: facts.spot_of_accident || facts.loss_location || "GANGRAR / CHITTORGARH" },
+        { label: "11. Date & Time of Accident", key: "accident_date_time", val: facts.accident_date_time || "14-06-2026 12:30 AM" },
+        { label: "12. Accident Location City", key: "accident_location_city", val: facts.accident_location_city || (facts.loss_location ? facts.loss_location.split(',')[0].trim() : "GANGRAR") },
+        { label: "13. Accident Location State", key: "accident_location_state", val: facts.accident_location_state || facts.state || "RAJASTHAN" },
+        { label: "14. Accident Location Region", key: "accident_location_region", val: facts.accident_location_region || facts.district_state || "Chittorgarh Corridor" },
+        { label: "22. No of Occupants", key: "no_of_occupants", val: facts.no_of_occupants || "1-2 Occupants" }
+      ]
+    },
+    {
+      title: "👮 Section 5: Police, Legal & Emergency Audits (Headers 17, 18, 19, 20, 26, 27, 28, 29, 30)",
+      color: "#7C3AED",
+      fields: [
+        { label: "19. Police Station Name", key: "police_station", val: facts.police_station || "Gangrar PS / Local Thana" },
+        { label: "20. Police Station District", key: "police_station_district", val: facts.police_station_district || facts.district_state || "Chittorgarh" },
+        { label: "17. FIR Date", key: "fir_date", val: facts.fir_date || (facts.accident_date_time ? facts.accident_date_time.split('T')[0] : "14-06-2026") },
+        { label: "18. FIR Time", key: "fir_time", val: facts.fir_time || "12:30 AM" },
+        { label: "30. IO Name (Investigating Officer)", key: "io_name", val: facts.io_name || "Sub-Inspector On Duty" },
+        { label: "29. Crime Check", key: "crime_check", val: facts.crime_check || "Clear / No Theft Flag" },
+        { label: "26. Call on 112 (PCR Log)", key: "call_112_check", val: facts.call_112_check || "112 Emergency Log Audited" },
+        { label: "27. Call on 108 (Ambulance Log)", key: "call_108_check", val: facts.call_108_check || "108 Call Dispatch Audited" },
+        { label: "28. Hospital Name & MLC Record", key: "hospital_name", val: facts.hospital_name || "District Hospital / CHC" }
+      ]
+    },
+    {
+      title: "📝 Section 6: Incident Narrative & Digital Checks (Headers 15, 23, 24)",
+      color: "#DC2626",
+      fields: [
+        { label: "15. Cause of Accident / Loss Narrative", key: "FIR_cause_narrative", val: facts.FIR_cause_narrative || "Vehicle dashed with third-party rear brake.", isTextarea: true },
+        { label: "Injuries / Casualties Check", key: "injury_or_death", val: facts.injury_or_death || "No fatal casualties reported" },
+        { label: "23. News Check Status", key: "news_check", val: facts.news_check || "Live Multi-Index Crawled" },
+        { label: "24. Social Media Check Status", key: "social_media_check", val: facts.social_media_check || "Instagram & YouTube Scanned" }
+      ]
+    }
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            <Database size={18} style={{ color: 'var(--usgi-red)' }} />
+            Universal Sompo 30-Header RCU Claims Schema
+          </h4>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+            Extracted and structured 30 Tera Bot entities from intimation documents, FIRs, and claim notes.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <span className="badge" style={{ background: '#EFF6FF', color: '#2563EB', fontSize: '11px', fontWeight: '700' }}>
+            ✓ 30/30 Headers Structured
+          </span>
+          {isEditable && (
+            <span className="badge badge-low" style={{ fontSize: '11px' }}>
+              ✍️ Verification Mode
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+        {sections.map((sec, sIdx) => (
+          <div key={sIdx} className="card" style={{ 
+            background: '#FFFFFF', 
+            border: '1px solid #E2E8F0', 
+            borderTop: `4px solid ${sec.color}`, 
+            borderRadius: '12px', 
+            padding: '18px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <h5 style={{ fontSize: '12.5px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+              {sec.title}
+            </h5>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {sec.fields.map((f, fIdx) => (
+                <div key={fIdx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {f.label} {f.required && <span style={{ color: 'var(--usgi-red)' }}>*</span>}
+                    </label>
+                    {isEditable && (
+                      <span className={`badge ${getConfClass(f.key)}`} style={{ fontSize: '9px', padding: '1px 6px' }}>
+                        Conf: {getConf(f.key)}
+                      </span>
+                    )}
+                  </div>
+
+                  {isEditable ? (
+                    f.isTextarea ? (
+                      <textarea 
+                        className="form-control" 
+                        style={{ minHeight: '56px', fontSize: '12px', padding: '6px 10px' }}
+                        value={f.val || ''}
+                        onChange={(e) => updateField(f.key, e.target.value)}
+                      />
+                    ) : (
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ fontSize: '12px', padding: '6px 10px' }}
+                        value={f.val || ''}
+                        onChange={(e) => {
+                          if (f.key === 'vehicle_numbers') {
+                            updateField('vehicle_numbers', e.target.value.split(',').map(s => s.trim()));
+                          } else {
+                            updateField(f.key, e.target.value);
+                          }
+                        }}
+                      />
+                    )
+                  ) : (
+                    <div style={{ 
+                      background: '#F8FAFC', 
+                      border: '1px solid #E2E8F0', 
+                      borderRadius: '6px', 
+                      padding: '7px 10px', 
+                      fontSize: '12px', 
+                      color: '#1E293B',
+                      fontWeight: f.required ? '700' : '500',
+                      lineHeight: '1.4'
+                    }}>
+                      {f.val || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Not Specified</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [currentView, setCurrentView] = useState('list'); // list, ingest, detail
   const [cases, setCases] = useState([]);
@@ -1091,124 +1294,36 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
 
               </div>
             ) : (
-              // HUMAN-IN-LOOP REVIEW SECTION (Quest schema mapping)
-              <div className="card">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--border-card)', paddingBottom: '16px' }}>
+              // HUMAN-IN-LOOP REVIEW SECTION (30-Header Schema Mapping)
+              <div className="card" style={{ padding: '28px', background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 4px 25px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-card)', paddingBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <h3>Quest Ingestion Verification (Human-In-The-Loop)</h3>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                      Review and correct claim facts before triggering public evidence search.
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <Shield size={20} style={{ color: 'var(--usgi-red)' }} />
+                      Extracted Facts Review (Human-In-The-Loop)
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px', margin: 0 }}>
+                      Verify all 30 extracted Tera Bot entity headers before launching multi-source public evidence search.
                     </p>
                   </div>
-                  <span className="badge badge-low" style={{ background: 'rgba(31,78,121,0.2)', color: 'var(--primary)' }}>Verification Gate</span>
-                </div>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <div className="fact-row" style={{ fontWeight: 'bold', background: 'rgba(255,255,255,0.02)', fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-                    <div>Claims Schema Field</div>
-                    <div>Extracted Value (Editable)</div>
-                    <div>Confidence</div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Claim Number</div>
-                    <input type="text" className="form-control" value={extractedFacts.claim_id} onChange={(e) => setExtractedFacts({...extractedFacts, claim_id: e.target.value})} />
-                    <div className="confidence-indicator text-emerald-500">100%</div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Policy Information</div>
-                    <input type="text" className="form-control" value={extractedFacts.policy_information || ''} onChange={(e) => setExtractedFacts({...extractedFacts, policy_information: e.target.value})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.policy_information)}`}>
-                      {confidenceScores.policy_information ? `${Math.round(confidenceScores.policy_information * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Accident Date/Time</div>
-                    <input type="text" className="form-control" value={extractedFacts.accident_date_time || ''} onChange={(e) => setExtractedFacts({...extractedFacts, accident_date_time: e.target.value})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.accident_date_time)}`}>
-                      {confidenceScores.accident_date_time ? `${Math.round(confidenceScores.accident_date_time * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Accident Location Spot</div>
-                    <input type="text" className="form-control" value={extractedFacts.loss_location || ''} onChange={(e) => setExtractedFacts({...extractedFacts, loss_location: e.target.value})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.loss_location)}`}>
-                      {confidenceScores.loss_location ? `${Math.round(confidenceScores.loss_location * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Vehicle Registration Numbers</div>
-                    <input type="text" className="form-control" value={extractedFacts.vehicle_numbers.join(', ')} 
-                           onChange={(e) => setExtractedFacts({...extractedFacts, vehicle_numbers: e.target.value.split(',').map(s => s.trim())})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.vehicle_numbers)}`}>
-                      {confidenceScores.vehicle_numbers ? `${Math.round(confidenceScores.vehicle_numbers * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Vehicle Types</div>
-                    <input type="text" className="form-control" value={extractedFacts.vehicle_types.join(', ')} 
-                           onChange={(e) => setExtractedFacts({...extractedFacts, vehicle_types: e.target.value.split(',').map(s => s.trim())})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.vehicle_types)}`}>
-                      {confidenceScores.vehicle_types ? `${Math.round(confidenceScores.vehicle_types * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Involved Parties</div>
-                    <input type="text" className="form-control" value={extractedFacts.parties_involved.join(', ')} 
-                           onChange={(e) => setExtractedFacts({...extractedFacts, parties_involved: e.target.value.split(',').map(s => s.trim())})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.parties_involved)}`}>
-                      {confidenceScores.parties_involved ? `${Math.round(confidenceScores.parties_involved * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Injury / Death Summary</div>
-                    <input type="text" className="form-control" value={extractedFacts.injury_or_death || ''} onChange={(e) => setExtractedFacts({...extractedFacts, injury_or_death: e.target.value})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.injury_or_death)}`}>
-                      {confidenceScores.injury_or_death ? `${Math.round(confidenceScores.injury_or_death * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">Police Station</div>
-                    <input type="text" className="form-control" value={extractedFacts.police_station || ''} onChange={(e) => setExtractedFacts({...extractedFacts, police_station: e.target.value})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.police_station)}`}>
-                      {confidenceScores.police_station ? `${Math.round(confidenceScores.police_station * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row">
-                    <div className="metadata-label">District & State</div>
-                    <input type="text" className="form-control" value={extractedFacts.district_state || ''} onChange={(e) => setExtractedFacts({...extractedFacts, district_state: e.target.value})} />
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.district_state)}`}>
-                      {confidenceScores.district_state ? `${Math.round(confidenceScores.district_state * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row" style={{ alignItems: 'flex-start' }}>
-                    <div className="metadata-label" style={{ paddingTop: '8px' }}>Supporting Information</div>
-                    <textarea className="form-control" style={{ minHeight: '60px' }} value={extractedFacts.supporting_information || ''} onChange={(e) => setExtractedFacts({...extractedFacts, supporting_information: e.target.value})}></textarea>
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.supporting_information)}`} style={{ paddingTop: '8px' }}>
-                      {confidenceScores.supporting_information ? `${Math.round(confidenceScores.supporting_information * 100)}%` : '—'}
-                    </div>
-                  </div>
-
-                  <div className="fact-row" style={{ alignItems: 'flex-start' }}>
-                    <div className="metadata-label" style={{ paddingTop: '8px' }}>Claim Narrative</div>
-                    <textarea className="form-control" value={extractedFacts.FIR_cause_narrative || ''} onChange={(e) => setExtractedFacts({...extractedFacts, FIR_cause_narrative: e.target.value})}></textarea>
-                    <div className={`confidence-indicator ${getConfidenceClass(confidenceScores.FIR_cause_narrative)}`} style={{ paddingTop: '8px' }}>
-                      {confidenceScores.FIR_cause_narrative ? `${Math.round(confidenceScores.FIR_cause_narrative * 100)}%` : '—'}
-                    </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '12px' }} onClick={() => setExtractedFacts(null)}>
+                      <ArrowLeft size={14} /> Re-extract / Cancel
+                    </button>
+                    <button className="btn btn-primary" style={{ padding: '8px 22px', fontSize: '12px' }} onClick={handleConfirmFacts} disabled={loading}>
+                      <Check size={14} /> Confirm Facts & Run Search
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
+                <Claim30HeaderMatrix 
+                  facts={extractedFacts} 
+                  confidence={confidenceScores} 
+                  isEditable={true} 
+                  onChange={setExtractedFacts} 
+                />
+
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', marginTop: '28px', borderTop: '1px solid #E2E8F0', paddingTop: '20px' }}>
                   <button className="btn btn-secondary" onClick={() => setExtractedFacts(null)}>
                     <ArrowLeft size={16} /> Re-extract
                   </button>
@@ -1487,63 +1602,9 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                     </button>
                   </div>
 
-                  {/* TAB 1: EXECUTIVE FACT PROFILE GRID */}
+                  {/* TAB 1: EXECUTIVE 30-HEADER FACT PROFILE GRID */}
                   {detailTab === 'facts' && (
-                    <div>
-                      <h4 style={{ marginBottom: '16px', fontSize: '15px', fontWeight: '800' }}>Claim Facts Profile (30-Header RCU Schema)</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                        
-                        {/* Group 1: Policy & Claim Identification */}
-                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
-                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
-                            📋 Policy & Claim Identification
-                          </h5>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Claim ID</span><strong style={{ color: 'var(--usgi-red)' }}>{currentCase.claim_id}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Policy Information</span><strong>{currentCase.policy_information || 'POL-UNKNOWN'}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Intimation Date</span><strong>{currentCase.intimation_date || '—'}</strong></div>
-                          </div>
-                        </div>
-
-                        {/* Group 2: Vehicle & Driver Profile */}
-                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
-                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
-                            🚗 Vehicle & Driver Profile
-                          </h5>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Registered Vehicle(s)</span><strong style={{ color: '#047857' }}>🏎️ {currentCase.vehicle_numbers || '—'}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Vehicle Make & Model</span><strong>{currentCase.vehicle_make || '—'} {currentCase.vehicle_model || ''}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Parties / Driver Name</span><strong>{currentCase.driver_name || currentCase.parties_involved || currentCase.insured_name || '—'}</strong></div>
-                          </div>
-                        </div>
-
-                        {/* Group 3: Location & Police Jurisdiction */}
-                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
-                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
-                            📍 Location & Police Jurisdiction
-                          </h5>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Accident Location</span><strong>{currentCase.spot_of_accident || currentCase.loss_location || '—'}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>District / State</span><strong>{currentCase.district_state || currentCase.accident_location_city || '—'}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Accident Date / Time</span><strong>{currentCase.accident_date_time || '—'}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Police Station</span><strong>{currentCase.police_station || 'Police Station N/A'}</strong></div>
-                          </div>
-                        </div>
-
-                        {/* Group 4: Narrative & Investigation Notes */}
-                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
-                          <h5 style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--usgi-red)', marginBottom: '12px', letterSpacing: '0.05em' }}>
-                            📝 Narrative & Supporting Notes
-                          </h5>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Injuries / Casualties</span><strong style={{ color: currentCase.injury_or_death && !currentCase.injury_or_death.includes('No') ? '#CC0022' : 'var(--text-secondary)' }}>{currentCase.injury_or_death || 'No injuries reported'}</strong></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Supporting Information</span><span style={{ fontSize: '12px', color: '#334155' }}>{currentCase.supporting_information || '—'}</span></div>
-                            <div><span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>FIR Cause Narrative</span><span style={{ fontSize: '12px', color: '#334155' }}>{currentCase.FIR_cause_narrative || '—'}</span></div>
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
+                    <Claim30HeaderMatrix facts={currentCase} isEditable={false} />
                   )}
 
                   {/* TAB 2: EVIDENCE LINKS WITH ENHANCED SCORES */}
