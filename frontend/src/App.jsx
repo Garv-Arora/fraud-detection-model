@@ -198,6 +198,12 @@ export default function App() {
   const [imageFile, setImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   
+  // Custom Investigator Search Modal state
+  const [showCustomSearchModal, setShowCustomSearchModal] = useState(false);
+  const [customQueries, setCustomQueries] = useState([]);
+  const [newQueryInput, setNewQueryInput] = useState('');
+  const [executingCustomSearch, setExecutingCustomSearch] = useState(false);
+
   // Quest pushback transaction simulator state
   const [pushingToQuest, setPushingToQuest] = useState(false);
   const [pushSuccess, setPushSuccess] = useState(false);
@@ -306,6 +312,59 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
       alert("Failed to load sample cases. Verify server connection.");
     } finally {
       setSyncingQuest(false);
+    }
+  };
+
+  // Custom Search Handlers
+  const handleOpenCustomSearch = () => {
+    if (!currentCase) return;
+    const loc = currentCase.loss_location || currentCase.district_state || 'Accident spot';
+    const veh = currentCase.vehicle_numbers ? currentCase.vehicle_numbers.split(',')[0].trim() : '';
+    const drv = currentCase.driver_name || currentCase.insured_name || '';
+    const defQueries = [
+      `${loc} road accident`,
+      veh ? `${veh} accident news` : '',
+      drv ? `${drv} accident` : '',
+      drv ? `site:instagram.com "${drv}" accident` : '',
+      veh ? `site:youtube.com "${veh}" accident` : '',
+      `${loc} सड़क दुर्घटना`,
+      `${loc} बारात हादसा`
+    ].filter(q => q.trim().length > 4);
+    setCustomQueries(defQueries);
+    setShowCustomSearchModal(true);
+  };
+
+  const handleAddCustomQuery = () => {
+    if (newQueryInput.trim() && !customQueries.includes(newQueryInput.trim())) {
+      setCustomQueries([...customQueries, newQueryInput.trim()]);
+      setNewQueryInput('');
+    }
+  };
+
+  const handleRemoveCustomQuery = (idx) => {
+    setCustomQueries(customQueries.filter((_, i) => i !== idx));
+  };
+
+  const handleExecuteCustomSearch = async () => {
+    if (!currentCase || customQueries.length === 0) return;
+    setExecutingCustomSearch(true);
+    try {
+      const res = await fetch(`${API_BASE}/cases/${currentCase.claim_id}/custom-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queries: customQueries })
+      });
+      if (res.ok) {
+        setShowCustomSearchModal(false);
+        setCurrentCase({ ...currentCase, status: 'Searching' });
+      } else {
+        alert("Failed to initiate custom search.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error initiating search");
+    } finally {
+      setExecutingCustomSearch(false);
     }
   };
 
@@ -1136,6 +1195,9 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
 
                 {currentCase.status === 'Completed' && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    <button className="btn btn-secondary" onClick={handleOpenCustomSearch}>
+                      <Search size={16} style={{ color: 'var(--usgi-red)' }} /> Query Customizer
+                    </button>
                     <a href={`${API_BASE}/cases/${currentCase.claim_id}/export-excel`} className="btn btn-secondary">
                       <FileSpreadsheet size={16} style={{ color: '#27ae60' }} /> Export Excel Pack
                     </a>
@@ -1656,6 +1718,56 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         </div>
       )}
       
+      {/* Custom Investigator Search Modal */}
+      {showCustomSearchModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(4px)' }}>
+          <div className="card" style={{ maxWidth: '680px', width: '100%', borderRadius: '16px', border: '2px solid var(--usgi-red)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid #F3D0D6', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--usgi-red)' }}>
+                <Search size={22} /> Investigator Query Customizer & Live Search
+              </h3>
+              <button className="btn btn-secondary" style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px' }} onClick={() => setShowCustomSearchModal(false)}>✕ Close</button>
+            </div>
+            
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+              Fine-tune the search queries below or add custom vernacular/hashtag search terms for claim <strong>{currentCase?.claim_id}</strong>.
+            </p>
+
+            {/* Query list */}
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', padding: '4px' }}>
+              {customQueries.map((q, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '8px 12px', borderRadius: '8px', fontSize: '12.5px' }}>
+                  <span style={{ fontFamily: 'monospace', color: '#1E293B' }}>{q}</span>
+                  <button className="btn btn-danger" style={{ padding: '2px 8px', fontSize: '11px' }} onClick={() => handleRemoveCustomQuery(idx)}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add query input */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="e.g. site:instagram.com &quot;Gagan Chhabra&quot; 2490 OR बारात हादसा" 
+                value={newQueryInput} 
+                onChange={(e) => setNewQueryInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCustomQuery()}
+                style={{ fontSize: '12.5px' }}
+              />
+              <button className="btn btn-secondary" onClick={handleAddCustomQuery} style={{ whiteSpace: 'nowrap' }}>+ Add Query</button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowCustomSearchModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleExecuteCustomSearch} disabled={executingCustomSearch || customQueries.length === 0}>
+                {executingCustomSearch ? <RefreshCw className="animate-spin" size={16} /> : <Search size={16} />}
+                Execute Targeted Search ({customQueries.length} Queries)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer Statement of Responsibility */}
       <footer style={{ borderTop: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 40px', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
         <div>

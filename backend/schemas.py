@@ -169,3 +169,7 @@ class UpdateFactsRequest(BaseModel):
 
 class ActionRequest(BaseModel):
     status: str
+
+class CustomSearchRequest(BaseModel):
+    queries: List[str] = []
+

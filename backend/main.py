@@ -103,20 +103,20 @@ def save_facts_to_case_model(db_case: Case, facts: dict, confidence: dict = None
     if confidence:
         db_case.confidence_scores = json.dumps(confidence)
 
-def run_evidence_search_pipeline(case_id: int, db_session: Session):
+def run_evidence_search_pipeline(case_id: int, db_session: Session, custom_queries: Optional[List[str]] = None):
     try:
         case = db_session.query(Case).filter(Case.id == case_id).first()
         if not case:
             logger.error(f"Case {case_id} not found in background task.")
             return
             
-        logger.info(f"Starting V1.0 evidence search pipeline for Quest claim {case.claim_id}")
+        logger.info(f"Starting evidence search pipeline for Universal Sompo claim {case.claim_id}")
         
         # Add Audit Log
         db_session.add(AuditLog(
             case_id=case.id,
             action="Search Initiated",
-            details="Search fanned out in parallel to news portals, Google Lens checker, and Facebook/Instagram."
+            details="Search fanned out in parallel across regional news portals, Google News, YouTube, and Instagram/Facebook."
         ))
         db_session.commit()
         
@@ -153,13 +153,13 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session):
             "district_state": case.district_state
         }
         
-        # Generate Queries
-        queries = search_engine.generate_search_queries(facts)
+        # Generate or use custom queries
+        queries = custom_queries if custom_queries else search_engine.generate_search_queries(facts)
         
         db_session.add(AuditLog(
             case_id=case.id,
             action="Queries Expanded",
-            details=f"Fanned out into queries: " + ", ".join([f"'{q}'" for q in queries])
+            details=f"Executing {len(queries)} search queries: " + ", ".join([f"'{q}'" for q in queries[:4]])
         ))
         db_session.commit()
         
@@ -370,45 +370,187 @@ def pull_claims_from_quest(db: Session = Depends(get_db)):
 @app.post("/api/cases/load-sample-presets")
 def load_universal_sompo_sample_presets(db: Session = Depends(get_db)):
     """
-    Parses and loads the 4 real sample case ZIP packages (CL26140317, CL26148443, CL26160678, CL26166635)
-    from the samples/ directory into the database.
+    Parses and loads the real sample case ZIP packages and the 7 real Universal Sompo repudiated benchmark cases.
     """
     imported = []
-    if not os.path.exists(SAMPLES_DIR):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="samples/ directory not found on server."
-        )
-        
-    for fname in os.listdir(SAMPLES_DIR):
-        if fname.endswith(".zip"):
-            zpath = os.path.join(SAMPLES_DIR, fname)
-            facts, confidence = extractor.extract_facts_from_zip(zpath)
-            claim_no = facts.get("claim_id")
+    
+    # 1. Load ZIP archives from samples/ if present
+    if os.path.exists(SAMPLES_DIR):
+        for fname in os.listdir(SAMPLES_DIR):
+            if fname.endswith(".zip"):
+                zpath = os.path.join(SAMPLES_DIR, fname)
+                facts, confidence = extractor.extract_facts_from_zip(zpath)
+                claim_no = facts.get("claim_id")
+                
+                existing = db.query(Case).filter(Case.claim_id == claim_no).first()
+                if not existing:
+                    db_case = Case(claim_id=claim_no)
+                    save_facts_to_case_model(db_case, facts, confidence)
+                    db.add(db_case)
+                    db.commit()
+                    db.refresh(db_case)
+                    
+                    db.add(AuditLog(
+                        case_id=db_case.id,
+                        action="Sample Case Loaded",
+                        details=f"Loaded real Universal Sompo sample case archive '{fname}'."
+                    ))
+                    db.commit()
+                else:
+                    save_facts_to_case_model(existing, facts, confidence)
+                    db.commit()
+                    
+                imported.append(claim_no)
+
+    # 2. Real Universal Sompo Repudiated Benchmark Cases
+    repudiated_benchmarks = [
+        {
+            "claim_id": "CL21246240",
+            "policy_information": "2315/64077818/00/000",
+            "insured_name": "DINESH KUMAR",
+            "driver_name": "Naushad (Implanted Driver)",
+            "vehicle_numbers": ["UP-14-BT-3321"],
+            "vehicle_make": "TATA MOTORS",
+            "vehicle_model": "LPT 1613",
+            "accident_date_time": "2024-02-18T16:00:00",
+            "loss_location": "Bulandshahr Highway",
+            "district_state": "Bulandshahr, Uttar Pradesh",
+            "police_station": "Kotwali PS",
+            "FIR_cause_narrative": "Claim form states Naushad was driving and Sushil/Shakir were cleaners. Local newspaper reports Sushil was driving without DL at the time of collision.",
+            "supporting_information": "Driver Implant: Local newspaper reported Sushil was driving and had no valid DL. Hospital RTI confirms brought-by records.",
+            "news_check": "Verified Newspaper: Sushil was driving without DL",
+            "social_media_check": "Local police bulletin verified"
+        },
+        {
+            "claim_id": "CL22059951",
+            "policy_information": "2374/66654573/00/000",
+            "insured_name": "MR. KRISHNA KUMAR CHAUVE",
+            "driver_name": "Anil",
+            "vehicle_numbers": ["UP-65-AR-4490"],
+            "vehicle_make": "MAHINDRA",
+            "vehicle_model": "BOLERO PICKUP",
+            "accident_date_time": "2024-04-12T11:30:00",
+            "loss_location": "Varanasi Bypass",
+            "district_state": "Varanasi, Uttar Pradesh",
+            "police_station": "Rohania PS",
+            "FIR_cause_narrative": "Insured claimed 12 injured persons were roadside pedestrians. Same-day FIR and newspaper reported all 12 were passengers travelling inside the overloaded goods vehicle which overturned.",
+            "supporting_information": "Misrepresentation & Overloading: Goods vehicle overloaded with fare-paying passengers.",
+            "news_check": "Newspaper verified: 12 passengers inside vehicle overturned",
+            "social_media_check": "Local incident report verified"
+        },
+        {
+            "claim_id": "CL22389159",
+            "policy_information": "2316/68524590/00/000",
+            "insured_name": "MR. SHAILENDRA SINGH",
+            "driver_name": "Surya Prakash Singh (Implanted)",
+            "vehicle_numbers": ["UP-70-ET-8822"],
+            "vehicle_make": "HYUNDAI",
+            "vehicle_model": "CRETA",
+            "accident_date_time": "2024-05-20T21:00:00",
+            "loss_location": "Prayagraj Civil Lines",
+            "district_state": "Prayagraj, Uttar Pradesh",
+            "police_station": "Civil Lines PS",
+            "FIR_cause_narrative": "Claim states Surya Prakash Singh was driving. News report and spot video show Mr. Raja driving. Google timeline confirms Surya Prakash was not at loss location.",
+            "supporting_information": "Driver Implant & Digital Alibi Discrepancy: Google timeline location history proves implanted driver was absent.",
+            "news_check": "Video & News confirmed Mr. Raja driving",
+            "social_media_check": "Google Timeline location contradictory"
+        },
+        {
+            "claim_id": "CL24181742",
+            "policy_information": "2315/74319639/00/B00",
+            "insured_name": "MRS. CHANDA CHABRA",
+            "driver_name": "Gagan Chhabra",
+            "vehicle_numbers": ["UK-07-CD-2490"],
+            "vehicle_make": "MAHINDRA",
+            "vehicle_model": "BOLERO MAXX PUP CITY",
+            "accident_date_time": "2024-07-14T00:30:00",
+            "loss_location": "Dehradun Haridwar Road, Chidderwala",
+            "district_state": "Dehradun, Uttarakhand",
+            "police_station": "Raiwala PS",
+            "FIR_cause_narrative": "Claim states accident on 14.07.2024 (policy inception: 12.07.2024). Damage video uploaded on Instagram ID @_Its_vansh_2490 on 11.07.2024 proves pre-existing loss.",
+            "supporting_information": "Pre-Inception Loss: Instagram video posted on 11.07.2024 proves accident occurred before policy start date.",
+            "news_check": "News & Instagram video verified on 11.07.2024",
+            "social_media_check": "Instagram Reel @_Its_vansh_2490 shows pre-inception damage"
+        },
+        {
+            "claim_id": "CL26123008",
+            "policy_information": "2369/78283277/00/000",
+            "insured_name": "MOHIT SHARMA",
+            "driver_name": "Nitan Sharma",
+            "vehicle_numbers": ["JK-02-DU-7684"],
+            "vehicle_make": "MARUTI SUZUKI",
+            "vehicle_model": "SWIFT",
+            "accident_date_time": "2026-05-27T10:00:00",
+            "loss_location": "Village Gulaba to Khada",
+            "district_state": "Jammu, Jammu & Kashmir",
+            "police_station": "Akhnoor PS",
+            "FIR_cause_narrative": "Driver refused to cooperate for inspection. Stunt videos found on insured's Instagram profile. Neither insured nor brother holds valid driving licence.",
+            "supporting_information": "Stunt Driving / No Valid DL: Instagram profile contains stunt videos of subject vehicle.",
+            "news_check": "No police report filed",
+            "social_media_check": "Instagram stunt driving videos identified"
+        },
+        {
+            "claim_id": "CL25096636",
+            "policy_information": "2369/77987822/00/000",
+            "insured_name": "SURENDRALAL SHRIWASTAV",
+            "driver_name": "Mahendra Kumar Shrivastav (Implanted)",
+            "vehicle_numbers": ["UP-53-BZ-1902"],
+            "vehicle_make": "HONDA",
+            "vehicle_model": "ACTIVA 6G",
+            "accident_date_time": "2025-06-13T12:30:00",
+            "loss_location": "Husain Nagar, Dalya",
+            "district_state": "Gorakhpur, Uttar Pradesh",
+            "police_station": "Gorakhpur Cantt PS",
+            "FIR_cause_narrative": "Claim states brother Mahendra was driving. Hospital slip dated 10:57 AM was in name of Manisha Mishra; Manisha confirmed Anshika was driving alone without DL. Spot video shows women's slippers near vehicle.",
+            "supporting_information": "Driver Implant: Female driver without DL replaced with licensed brother. Hospital timestamp contradiction.",
+            "news_check": "Medical College Hospital slip timed prior to claimed accident",
+            "social_media_check": "Spot video confirms women's footwear at driver position"
+        },
+        {
+            "claim_id": "CL26121725",
+            "policy_information": "2367/82275066/00/000",
+            "insured_name": "ARUN KUMAR PAL",
+            "driver_name": "Arun Kumar Pal (Implanted)",
+            "vehicle_numbers": ["UP-66-K-9912"],
+            "vehicle_make": "MARUTI SUZUKI",
+            "vehicle_model": "ERTIGA",
+            "accident_date_time": "2026-05-01T21:30:00",
+            "loss_location": "Near Police Station Durgaganj, Suriyawan",
+            "district_state": "Bhadohi, Uttar Pradesh",
+            "police_station": "Durgaganj PS",
+            "FIR_cause_narrative": "Claim states insured was driving with cousins to visit aunt. Dainik Bhaskar/Jagran and YouTube report vehicle was in a Wedding Procession (Barat) carrying Groom Manjit Pal; insured was absent.",
+            "supporting_information": "Hire & Reward / Wedding Barat: Private vehicle used commercially in marriage procession. Disclosed occupants differ from news.",
+            "news_check": "Dainik Bhaskar & Jagran: Wedding Barat accident carrying Groom",
+            "social_media_check": "YouTube video confirmed Barat procession"
+        }
+    ]
+
+    for b in repudiated_benchmarks:
+        c_id = b["claim_id"]
+        existing = db.query(Case).filter(Case.claim_id == c_id).first()
+        full_facts, conf = extractor.fill_defaults_for_facts(b)
+        if not existing:
+            db_case = Case(claim_id=c_id)
+            save_facts_to_case_model(db_case, full_facts, conf)
+            db.add(db_case)
+            db.commit()
+            db.refresh(db_case)
             
-            existing = db.query(Case).filter(Case.claim_id == claim_no).first()
-            if not existing:
-                db_case = Case(claim_id=claim_no)
-                save_facts_to_case_model(db_case, facts, confidence)
-                db.add(db_case)
-                db.commit()
-                db.refresh(db_case)
-                
-                db.add(AuditLog(
-                    case_id=db_case.id,
-                    action="Sample Case Loaded",
-                    details=f"Loaded real Universal Sompo sample case archive '{fname}' with 30-header facts."
-                ))
-                db.commit()
-            else:
-                save_facts_to_case_model(existing, facts, confidence)
-                db.commit()
-                
-            imported.append(claim_no)
-                
+            db.add(AuditLog(
+                case_id=db_case.id,
+                action="Benchmark Case Ingested",
+                details=f"Loaded real Universal Sompo repudiated benchmark case '{c_id}' ({b['insured_name']})."
+            ))
+            db.commit()
+        else:
+            save_facts_to_case_model(existing, full_facts, conf)
+            db.commit()
+            
+        imported.append(c_id)
+        
     return {
         "success": True,
-        "message": f"Successfully loaded {len(imported)} real Universal Sompo sample cases from ZIP archives.",
+        "message": f"Successfully loaded {len(imported)} Universal Sompo cases (including all 7 real repudiated benchmarks).",
         "claims": imported
     }
 
@@ -685,6 +827,36 @@ def confirm_facts(
     
     background_tasks.add_task(run_evidence_search_pipeline, case.id, db)
     return case
+
+@app.post("/api/cases/{claim_id}/custom-search")
+def run_investigator_custom_search(
+    claim_id: str,
+    req: schemas.CustomSearchRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    case = db.query(Case).filter(Case.claim_id == claim_id).first()
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Case with claim ID {claim_id} not found."
+        )
+        
+    case.status = "Searching"
+    db.add(AuditLog(
+        case_id=case.id,
+        action="Custom Search Triggered",
+        details=f"Investigator executed targeted search with {len(req.queries)} custom queries."
+    ))
+    db.commit()
+    
+    background_tasks.add_task(run_evidence_search_pipeline, case.id, db, req.queries)
+    return {
+        "success": True,
+        "message": f"Targeted search initiated with {len(req.queries)} queries for claim {claim_id}.",
+        "queries": req.queries
+    }
+
 
 @app.post("/api/cases/{claim_id}/image", response_model=schemas.ImageMatchResponse)
 async def upload_claim_image(

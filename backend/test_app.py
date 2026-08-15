@@ -74,5 +74,60 @@ class TestUniversalSompoTeraBotIntegration(unittest.TestCase):
         self.assertTrue(data.get("success"))
         self.assertGreaterEqual(len(data.get("claims", [])), 20)
 
+    def test_06_vehicle_permutations_generator(self):
+        import backend.search_engine as search_engine
+        perms = search_engine.generate_vehicle_permutations("RJ-09-GC-8889")
+        self.assertIn("RJ-09-GC-8889", perms)
+        self.assertIn("RJ09GC8889", perms)
+        self.assertIn("RJ 09 GC 8889", perms)
+        self.assertIn("8889", perms)
+
+    def test_07_vernacular_and_social_query_generation(self):
+        import backend.search_engine as search_engine
+        facts = {
+            "claim_id": "CL26121725",
+            "insured_name": "Arun Kumar Pal",
+            "driver_name": "Arun Kumar Pal",
+            "vehicle_numbers": ["UP-66-K-9912"],
+            "loss_location": "Durgaganj, Suriyawan",
+            "district_state": "Bhadohi, Uttar Pradesh",
+            "accident_date_time": "2026-05-01T21:30:00",
+            "FIR_cause_narrative": "Car collided with truck near Durgaganj PS"
+        }
+        queries = search_engine.generate_search_queries(facts)
+        self.assertGreaterEqual(len(queries), 5)
+        # Verify vernacular / social media query generation
+        query_text = " ".join(queries)
+        self.assertTrue("सड़क दुर्घटना" in query_text or "बारात" in query_text or "instagram" in query_text)
+
+    def test_08_repudiated_benchmark_mismatch_evaluations(self):
+        import backend.scorer as scorer
+        
+        # Test Case 1: Driver Implant (Case CL21246240)
+        facts1 = {"driver_name": "Naushad", "insured_name": "Dinesh Kumar"}
+        evs1 = [{"title": "News Report", "snippet": "Sushil was driving the vehicle without DL", "score": 0.85}]
+        flags1, exp1 = scorer.evaluate_mismatch_flags(facts1, evs1)
+        self.assertIn("driver_implant", flags1)
+
+        # Test Case 2: Pre-Inception Loss (Case CL24181742)
+        facts2 = {"accident_date_time": "2024-07-14", "insured_name": "Chanda Chhabra"}
+        evs2 = [{"title": "Instagram Video", "snippet": "Video uploaded on 11.07.2024 shows damage prior to the policy start date", "score": 0.90}]
+        flags2, exp2 = scorer.evaluate_mismatch_flags(facts2, evs2)
+        self.assertIn("pre_inception", flags2)
+
+        # Test Case 3: Wedding Barat / Hire & Reward (Case CL26121725)
+        facts3 = {"insured_name": "Arun Kumar Pal", "loss_location": "Durgaganj"}
+        evs3 = [{"title": "Dainik Bhaskar", "snippet": "Car going in Wedding Procession (Barat) with Groom Manjit Pal collided with truck", "score": 0.92}]
+        flags3, exp3 = scorer.evaluate_mismatch_flags(facts3, evs3)
+        self.assertIn("hire_and_reward", flags3)
+
+    def test_09_custom_search_endpoint(self):
+        res = self.client.post("/api/cases/CL26121725/custom-search", json={"queries": ["Durgaganj barat accident", "UP66K9912 accident"]})
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(len(data.get("queries")), 2)
+
 if __name__ == "__main__":
     unittest.main()
+

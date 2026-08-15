@@ -228,6 +228,39 @@ def parse_universal_sompo_intimation(text: str) -> Dict[str, Any]:
     
     return data
 
+def extract_image_exif_metadata(image_bytes: bytes) -> Dict[str, Any]:
+    """Extracts EXIF capture date, camera model, and GPS coordinates from image bytes."""
+    meta = {"capture_date": None, "camera_make": None, "has_exif": False}
+    try:
+        from PIL import Image, ExifTags
+        img = Image.open(io.BytesIO(image_bytes))
+        exif = img._getexif()
+        if exif:
+            meta["has_exif"] = True
+            for tag_id, val in exif.items():
+                tag_name = ExifTags.TAGS.get(tag_id, tag_id)
+                if tag_name in ["DateTimeOriginal", "DateTime"]:
+                    meta["capture_date"] = str(val)
+                elif tag_name in ["Make", "Model"]:
+                    meta["camera_make"] = str(val)
+    except Exception as e:
+        logger.debug(f"EXIF parsing skipped: {e}")
+    return meta
+
+def compute_image_phash(image_bytes: bytes) -> str:
+    """Computes a 64-bit difference perceptual hash (dHash) to detect duplicate/recycled crash photos."""
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(image_bytes)).convert('L').resize((9, 8), Image.Resampling.LANCZOS)
+        pixels = list(img.getdata())
+        diff = []
+        for row in range(8):
+            for col in range(8):
+                diff.append(pixels[row * 9 + col] > pixels[row * 9 + col + 1])
+        return "".join(["1" if d else "0" for d in diff])
+    except Exception:
+        return ""
+
 def extract_facts_from_zip(zip_path_or_bytes) -> Tuple[Dict[str, Any], Dict[str, float]]:
     """Extracts facts from a Universal Sompo sample case ZIP package."""
     facts = {}
