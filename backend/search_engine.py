@@ -40,6 +40,84 @@ def generate_vehicle_permutations(vehicle_no: str) -> List[str]:
             
     return list(dict.fromkeys([p for p in permutations if p]))
 
+from datetime import datetime, timedelta
+
+def get_next_day_date(date_val: str) -> Tuple[str, str]:
+    """
+    Computes both the accident date and the Day T+1 next morning publication date.
+    Returns (accident_date_str, next_day_date_str) in YYYY-MM-DD format.
+    """
+    if not date_val:
+        return "", ""
+        
+    date_clean = date_val.split("T")[0].split()[0] if date_val else ""
+    try:
+        if "-" in date_clean:
+            parts = date_clean.split("-")
+            if len(parts[0]) == 4: # YYYY-MM-DD
+                dt = datetime(int(parts[0]), int(parts[1]), int(parts[2]))
+            else: # DD-MM-YYYY
+                dt = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+        elif "/" in date_clean:
+            parts = date_clean.split("/")
+            if len(parts[0]) == 4:
+                dt = datetime(int(parts[0]), int(parts[1]), int(parts[2]))
+            else:
+                dt = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+        else:
+            return date_clean, ""
+            
+        next_dt = dt + timedelta(days=1)
+        return dt.strftime("%Y-%m-%d"), next_dt.strftime("%Y-%m-%d")
+    except Exception:
+        return date_clean, ""
+
+def generate_epaper_links(facts: Dict[str, Any]) -> List[Dict[str, str]]:
+    """
+    Generates targeted direct digital archive / ePaper research links for the Day-After (T+1)
+    across major Indian Hindi & regional daily newspapers.
+    """
+    date_val = facts.get("accident_date_time", "")
+    day_t, day_next = get_next_day_date(date_val)
+    
+    district = facts.get("district_state", "").split(",")[0].strip() or facts.get("accident_location_city", "") or "District"
+    
+    epapers = [
+        {
+            "publisher": "Dainik Bhaskar ePaper",
+            "edition": f"{district} Edition",
+            "target_date": day_next or day_t,
+            "archive_url": "https://epaper.bhaskar.com/",
+            "direct_search_url": f"https://www.google.com/search?q=site:bhaskar.com+{urllib.parse.quote(district)}+accident+{day_next or day_t}",
+            "description": f"Audits Day T+1 morning print edition for {district} road accident & FIR blotters."
+        },
+        {
+            "publisher": "Dainik Jagran ePaper",
+            "edition": f"{district} Edition",
+            "target_date": day_next or day_t,
+            "archive_url": "https://epaper.jagran.com/",
+            "direct_search_url": f"https://www.google.com/search?q=site:jagran.com+{urllib.parse.quote(district)}+दुर्घटना+{day_next or day_t}",
+            "description": f"Audits local district crime & accident page for {district}."
+        },
+        {
+            "publisher": "Amar Ujala ePaper",
+            "edition": f"{district} Edition",
+            "target_date": day_next or day_t,
+            "archive_url": "https://epaper.amarujala.com/",
+            "direct_search_url": f"https://www.google.com/search?q=site:amarujala.com+{urllib.parse.quote(district)}+सड़क+हादसा+{day_next or day_t}",
+            "description": f"Direct archive check for Amar Ujala next-day print coverage."
+        },
+        {
+            "publisher": "Rajasthan Patrika / State Press",
+            "edition": f"{district} Edition",
+            "target_date": day_next or day_t,
+            "archive_url": "https://epaper.patrika.com/",
+            "direct_search_url": f"https://www.google.com/search?q=site:patrika.com+{urllib.parse.quote(district)}+हादसा+{day_next or day_t}",
+            "description": f"Regional state press archive lookup for {district}."
+        }
+    ]
+    return epapers
+
 def generate_search_queries(facts: Dict[str, Any]) -> List[str]:
     """
     Generates dynamic multi-factor search queries across:

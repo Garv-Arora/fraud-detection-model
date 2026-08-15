@@ -857,6 +857,32 @@ def run_investigator_custom_search(
         "queries": req.queries
     }
 
+@app.get("/api/cases/{claim_id}/epapers")
+def get_case_epaper_links(claim_id: str, db: Session = Depends(get_db)):
+    case = db.query(Case).filter(Case.claim_id == claim_id).first()
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Case with claim ID {claim_id} not found."
+        )
+        
+    facts = {
+        "claim_id": case.claim_id,
+        "accident_date_time": case.accident_date_time,
+        "loss_location": case.loss_location,
+        "district_state": case.district_state,
+        "accident_location_city": case.accident_location_city
+    }
+    epaper_links = search_engine.generate_epaper_links(facts)
+    day_t, day_next = search_engine.get_next_day_date(case.accident_date_time or "")
+    return {
+        "claim_id": claim_id,
+        "accident_date": day_t,
+        "next_day_edition_date": day_next,
+        "epapers": epaper_links
+    }
+
+
 
 @app.post("/api/cases/{claim_id}/image", response_model=schemas.ImageMatchResponse)
 async def upload_claim_image(
