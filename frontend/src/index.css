@@ -412,6 +412,238 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(5, 150, 105, 0.3);
 }
 
+/* Modern Segmented Tab Navigation Control */
+.tab-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #F1F5F9;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.tab-btn:hover {
+  color: #1E293B;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.tab-btn.active {
+  background: #FFFFFF;
+  color: var(--usgi-red);
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.tab-btn.active svg {
+  color: var(--usgi-red) !important;
+}
+
+/* Modern Radar / Dual-Ring Loading Component */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3.5px solid rgba(204, 0, 34, 0.12);
+  border-radius: 50%;
+  border-top-color: var(--usgi-red);
+  border-right-color: var(--usgi-red);
+  animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+  margin-bottom: 18px;
+}
+
+.loading-container p {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: -0.01em;
+}
+
+.loading-subtext {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* Source Tags */
+.source-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tag-news {
+  background: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #BFDBFE;
+}
+
+.tag-youtube {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.tag-instagram {
+  background: #FDF2F8;
+  color: #DB2777;
+  border: 1px solid #FBCFE8;
+}
+
+.tag-epaper {
+  background: #FFF1F2;
+  color: #E11D48;
+  border: 1px solid #FFE4E6;
+}
+
+.tag-web {
+  background: #F8FAFC;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
+
+/* Mismatch Banner */
+.mismatch-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-left: 5px solid var(--usgi-red);
+  border-radius: 10px;
+  padding: 16px 20px;
+  color: #991B1B;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Grid & Metadata Helpers */
+.grid-main {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+@media (max-width: 1100px) {
+  .grid-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metadata-value {
+  font-size: 13.5px;
+  color: #1E293B;
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.btn-success {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.btn-danger {
+  background: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+
+/* Lens Grid */
+.lens-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.lens-image-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lens-img-wrapper {
+  background: #E2E8F0;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  position: relative;
+}
+
+.lens-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  color: #FFF;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.lens-details {
+  padding: 12px;
+}
+
+.lens-match-status {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
 /* Universal Dropzone (Light Mode) */
 .dropzone {
   border: 2px dashed rgba(204, 0, 34, 0.4);

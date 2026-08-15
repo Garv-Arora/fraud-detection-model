@@ -864,7 +864,10 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
             {loading && cases.length === 0 ? (
               <div className="loading-container">
                 <div className="spinner"></div>
-                <p>Retrieving Quest claims database...</p>
+                <p style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '6px' }}>
+                  Loading Universal Sompo Claims Database
+                </p>
+                <div className="loading-subtext">Synchronizing claims and investigation records...</div>
               </div>
             ) : cases.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
@@ -1549,7 +1552,12 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                       {currentCase.status === 'Searching' ? (
                         <div className="loading-container">
                           <div className="spinner"></div>
-                          <p>Executing parallel search & scoring engine...</p>
+                          <p style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '6px' }}>
+                            ⚡ Multi-Source Evidence Discovery In Progress
+                          </p>
+                          <div className="loading-subtext" style={{ maxWidth: '480px', lineHeight: '1.5' }}>
+                            Dispatching queries to Google News RSS, Regional e-Paper archives, Instagram/YouTube, and spatial geocoding...
+                          </div>
                         </div>
                       ) : !currentCase.evidences || currentCase.evidences.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '40px 20px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
@@ -1653,7 +1661,10 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                       {currentCase.status === 'Searching' ? (
                         <div className="loading-container">
                           <div className="spinner"></div>
-                          <p>Analyzing evidence discrepancies...</p>
+                          <p style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '6px' }}>
+                            Evaluating Discrepancy & Fraud Signals
+                          </p>
+                          <div className="loading-subtext">Cross-referencing claim narratives against Driver Implant, Pre-Inception, and Barat models...</div>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
