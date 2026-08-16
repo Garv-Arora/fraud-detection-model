@@ -4,8 +4,9 @@ import {
   ExternalLink, Download, FileSpreadsheet, Eye, Trash2, ArrowLeft,
   FileImage, ClipboardList, Clock, Search, MapPin, Tag, Plus, Check, 
   Edit3, ArrowUpRight, CheckSquare, HelpCircle, UserCheck, Settings, Database,
-  Newspaper, Terminal, Radio, Layers, Globe
+  Newspaper, Terminal, Radio, Layers, Globe, Sparkles
 } from 'lucide-react';
+import SearchWorkbench from './components/SearchWorkbench';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -960,9 +961,16 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              className={`btn ${currentView === 'workbench' ? 'btn-primary' : 'btn-secondary'}`} 
+              onClick={() => { setCurrentView('workbench'); setImportStatus(null); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Globe size={16} /> Search Lab
+            </button>
             {currentView !== 'list' && (
               <button className="btn btn-secondary" onClick={() => { setCurrentView('list'); setImportStatus(null); fetchCases(); }}>
-                <ArrowLeft size={16} /> Back to Claims
+                <ArrowLeft size={16} /> Claims Portfolio
               </button>
             )}
             {currentView === 'list' && activeRole === 'Investigator' && (
@@ -1950,6 +1958,11 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
 
             </div>
           </div>
+        )}
+
+        {/* VIEW 4: SEARCH ENGINE WORKBENCH & LAB */}
+        {currentView === 'workbench' && (
+          <SearchWorkbench />
         )}
       </main>
 

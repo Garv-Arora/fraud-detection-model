@@ -563,3 +563,206 @@ def generate_synthetic_evidence(facts: Dict[str, Any], queries: List[str]) -> Li
 
     # 3. For any other claim with no specific benchmark match, return empty list (never inject unrelated links)
     return []
+
+def score_workbench_relevance(text: str, keywords: List[str]) -> float:
+    """Calculates relevance score percentage based on matching query keywords."""
+    if not keywords or not text:
+        return 50.0
+    text_lower = text.lower()
+    matches = sum(1 for kw in keywords if kw.lower() in text_lower)
+    score = (matches / len(keywords)) * 100.0
+    return min(max(round(score, 1), 10.0), 99.0)
+
+def execute_search_workbench(
+    query: str = "",
+    insured_name: str = "",
+    vehicle_no: str = "",
+    location: str = "",
+    date_str: str = "",
+    incident_keywords: str = "",
+    engines: Optional[List[str]] = None,
+    strict_accident_filter: bool = False,
+    deep_scrape: bool = True
+) -> Dict[str, Any]:
+    """
+    Dedicated Search Engine Workbench / Playground processor.
+    Performs focused multi-engine internet discovery across Google News, DuckDuckGo, Social Media, and Vernacular ePapers.
+    """
+    start_time = time.time()
+    
+    # 1. Build keyword set for relevance scoring and highlighting
+    all_keywords = []
+    if query:
+        all_keywords.extend([w.strip() for w in query.split() if len(w.strip()) > 2])
+    if insured_name:
+        all_keywords.extend([w.strip() for w in insured_name.split() if len(w.strip()) > 2])
+    if vehicle_no:
+        clean_v = clean_vehicle_number(vehicle_no)
+        if clean_v:
+            all_keywords.append(clean_v)
+            all_keywords.extend(generate_vehicle_permutations(clean_v))
+    if location:
+        all_keywords.extend([w.strip() for w in location.split() if len(w.strip()) > 2])
+    if incident_keywords:
+        all_keywords.extend([w.strip() for w in incident_keywords.split() if len(w.strip()) > 2])
+        
+    all_keywords = list(dict.fromkeys(all_keywords))
+    
+    # 2. Build multi-engine targeted queries
+    queries = []
+    if query and query.strip():
+        queries.append(query.strip())
+        
+    base_parts = []
+    if insured_name:
+        base_parts.append(insured_name)
+    if vehicle_no:
+        base_parts.append(vehicle_no)
+    if location:
+        base_parts.append(location)
+        
+    if base_parts:
+        combo = " ".join(base_parts)
+        queries.append(f"{combo} accident")
+        queries.append(f"{combo} news")
+        if location:
+            queries.append(f"{combo} {location} accident")
+        if incident_keywords:
+            queries.append(f"{combo} {incident_keywords}")
+        queries.append(f"site:instagram.com {combo}")
+        queries.append(f"site:youtube.com {combo} accident")
+        queries.append(f"site:bhaskar.com {combo}")
+        queries.append(f"site:patrika.com {combo}")
+        queries.append(f"site:timesofindia.indiatimes.com {combo}")
+        
+    if location and date_str:
+        queries.append(f"{location} road accident {date_str}")
+        queries.append(f"{location} सड़क दुर्घटना {date_str}")
+        
+    if not queries and incident_keywords:
+        queries.append(f"{incident_keywords} accident")
+        
+    queries = list(dict.fromkeys([q for q in queries if q]))[:15]
+    
+    results = []
+    seen_urls = set()
+    
+    def run_query(q):
+        q_results = []
+        # Google News RSS
+        try:
+            q_enc = urllib.parse.quote(q)
+            rss_url = f"https://news.google.com/rss/search?q={q_enc}&hl=en-IN&gl=IN&ceid=IN:en"
+            resp = requests.get(rss_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=3.5)
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.content)
+                for item in root.findall('.//item')[:5]:
+                    title = item.find('title').text if item.find('title') is not None else ''
+                    link = item.find('link').text if item.find('link') is not None else ''
+                    pubDate = item.find('pubDate').text if item.find('pubDate') is not None else None
+                    if link and not any(b in (title + link).lower() for b in ENTERTAINMENT_BLACKLIST):
+                        q_results.append({
+                            "title": title,
+                            "url": link,
+                            "snippet": f"Indexed by Google News RSS. Source report: {title}",
+                            "publish_date": pubDate,
+                            "query_used": q,
+                            "source": "Google News",
+                            "engine": "Google News RSS"
+                        })
+        except Exception:
+            pass
+            
+        # DuckDuckGo
+        try:
+            ddgs = DDGS()
+            ddg_res = list(ddgs.text(q, max_results=5))
+            for r in ddg_res:
+                u = r.get("href", "").strip()
+                t = r.get("title", "")
+                b = r.get("body", "")
+                if u and not any(bl in (t + b + u).lower() for bl in ENTERTAINMENT_BLACKLIST):
+                    source = "Web"
+                    u_lower = u.lower()
+                    if "instagram.com" in u_lower:
+                        source = "Instagram"
+                    elif "youtube.com" in u_lower or "youtu.be" in u_lower:
+                        source = "YouTube"
+                    elif "facebook.com" in u_lower:
+                        source = "Facebook"
+                    elif any(d in u_lower for d in ["timesofindia", "bhaskar", "patrika", "jagran", "amarujala", "ndtv", "hindustantimes"]):
+                        source = "News"
+                        
+                    COMMERCIAL_JUNK = ['rj.com', 'ixigo.com', 'makemytrip.com', 'booking.com', 'tripadvisor.com', 'goibibo.com', 'yatra.com', 'amazon.in', 'flipkart.com', 'indiamart.com', 'justdial.com', 'merriam-webster.com', 'dictionary.com', 'filmibeat.com']
+                    if any(c in u.lower() for c in COMMERCIAL_JUNK):
+                        continue
+                        
+                    if is_incident_relevant(t, b, u):
+                        q_results.append({
+                            "title": t,
+                            "url": u,
+                            "snippet": b,
+                            "publish_date": None,
+                            "query_used": q,
+                            "source": source,
+                            "engine": "DuckDuckGo Web"
+                        })
+        except Exception:
+            pass
+            
+        return q_results
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futs = [executor.submit(run_query, q) for q in queries]
+        for f in futs:
+            for item in f.result():
+                u_clean = item["url"].strip().rstrip("/")
+                if u_clean not in seen_urls:
+                    seen_urls.add(u_clean)
+                    
+                    # Compute domain
+                    try:
+                        domain = urllib.parse.urlparse(u_clean).netloc.replace("www.", "")
+                    except Exception:
+                        domain = "web"
+                    item["domain"] = domain
+                    
+                    # Calculate relevance score
+                    match_text = f"{item['title']} {item['snippet']} {item['url']}"
+                    item["relevance_score"] = score_workbench_relevance(match_text, all_keywords)
+                    
+                    # Matched keywords
+                    item["matched_keywords"] = [kw for kw in all_keywords if kw.lower() in match_text.lower()]
+                    
+                    # Optional deep scraping
+                    if deep_scrape and len(results) < 12:
+                        full_body = scrape_full_article_content(u_clean)
+                        if full_body:
+                            item["full_article_text"] = full_body
+                            
+                    item["is_live"] = True
+                    results.append(item)
+                    
+    # Strict accident filter if requested
+    if strict_accident_filter:
+        mock_facts = {
+            "vehicle_numbers": [vehicle_no] if vehicle_no else [],
+            "insured_name": insured_name,
+            "driver_name": insured_name,
+            "accident_location_city": location,
+            "district_state": location
+        }
+        results = [r for r in results if is_case_specific_match(r, mock_facts)]
+        
+    # Sort results by relevance score descending
+    results.sort(key=lambda x: x["relevance_score"], reverse=True)
+    duration = time.time() - start_time
+    
+    return {
+        "query_executed": queries,
+        "keywords_extracted": all_keywords,
+        "total_results": len(results),
+        "execution_time_seconds": round(duration, 2),
+        "results": results
+    }
+

@@ -173,3 +173,36 @@ class ActionRequest(BaseModel):
 class CustomSearchRequest(BaseModel):
     queries: List[str] = []
 
+class SearchWorkbenchRequest(BaseModel):
+    query: Optional[str] = ""
+    insured_name: Optional[str] = ""
+    vehicle_no: Optional[str] = ""
+    location: Optional[str] = ""
+    date_str: Optional[str] = ""
+    incident_keywords: Optional[str] = ""
+    engines: Optional[List[str]] = ["google_news", "duckduckgo", "social", "epaper"]
+    strict_accident_filter: Optional[bool] = False
+    deep_scrape: Optional[bool] = True
+
+class SearchWorkbenchResultItem(BaseModel):
+    title: str
+    url: str
+    snippet: str
+    domain: Optional[str] = None
+    source: str
+    engine: str
+    publish_date: Optional[str] = None
+    query_used: str
+    relevance_score: float = 50.0
+    matched_keywords: List[str] = []
+    full_article_text: Optional[str] = None
+    is_live: bool = True
+
+class SearchWorkbenchResponse(BaseModel):
+    query_executed: List[str]
+    keywords_extracted: List[str]
+    total_results: int
+    execution_time_seconds: float
+    results: List[SearchWorkbenchResultItem]
+
+

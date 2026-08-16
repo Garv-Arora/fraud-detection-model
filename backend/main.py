@@ -857,6 +857,32 @@ def run_investigator_custom_search(
         "queries": req.queries
     }
 
+@app.post("/api/search/workbench", response_model=schemas.SearchWorkbenchResponse)
+def run_search_workbench(req: schemas.SearchWorkbenchRequest):
+    """
+    Dedicated Search Engine Workbench / Testing Laboratory endpoint.
+    Performs focused multi-engine web search for specific accidents by custom keywords or structured claim parameters.
+    """
+    try:
+        results = search_engine.execute_search_workbench(
+            query=req.query or "",
+            insured_name=req.insured_name or "",
+            vehicle_no=req.vehicle_no or "",
+            location=req.location or "",
+            date_str=req.date_str or "",
+            incident_keywords=req.incident_keywords or "",
+            engines=req.engines,
+            strict_accident_filter=req.strict_accident_filter or False,
+            deep_scrape=req.deep_scrape if req.deep_scrape is not None else True
+        )
+        return results
+    except Exception as e:
+        logger.error(f"Search workbench execution failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Search workbench error: {str(e)}"
+        )
+
 @app.get("/api/cases/{claim_id}/epapers")
 def get_case_epaper_links(claim_id: str, db: Session = Depends(get_db)):
     case = db.query(Case).filter(Case.claim_id == claim_id).first()
