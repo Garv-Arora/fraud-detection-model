@@ -506,7 +506,11 @@ PROVIDE A HIGHLY CONDENSED, OBJECTIVE EXECUTIVE REPORT IN MARKDOWN WITH THESE EX
   * **Feasibility Audit**: Road structure and landmark feasibility analysis.
 
 ### 🔍 Key Web Evidence Bulletins
-- List the top 3-4 most relevant web sources using verbatim URLs from search results, OR if 0 evidence found, explicitly state "No direct public web pages identified specifically referencing this claim."
+- List ONLY the verified case-specific web sources verbatim from the provided evidence list.
+- STRICT RULE: DO NOT quote, invent, or link any public URL or news source unless it is explicitly provided in the verified evidence list above and specifically matches this accident.
+- If 0 candidate evidence items are provided (empty list), DO NOT quote any URLs. State:
+  * "0 case-specific public web records found online matching this vehicle or loss event."
+  * "Standard RCU protocol: Local/private road accidents often have zero digital media footprint. Physical field verification (spot check, garage job card, and police GD entry) is recommended."
 
 ### ⚠️ RCU Investigation Risk Highlights
 - Objective bullet points highlighting any Driver Implant, Pre-Inception timeline discrepancies, Wedding Barat commercial usage, or stock photo reuse flagged during investigation.
@@ -516,7 +520,7 @@ Disclaimer: *This AI summary is generated as an evidence discovery aid and does 
             response = client.chat.completions.create(
                 model=openai_model,
                 messages=[
-                    {"role": "system", "content": "You are a professional RCU evidence discovery analyst for Universal Sompo General Insurance."},
+                    {"role": "system", "content": "You are a professional RCU evidence discovery analyst for Universal Sompo General Insurance. You strictly adhere to factual evidence and NEVER quote or invent unrelated public links."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,

@@ -10,7 +10,22 @@ from typing import List, Dict, Any, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
 from duckduckgo_search import DDGS
 
-logger = logging.getLogger(__name__)
+DUMMY_VEHICLE_PATTERNS = {
+    "NEW", "NEW---", "APPLIED", "APPLIED FOR", "TEMP", "TEMPORARY", 
+    "NOT REGISTERED", "UNREGISTERED", "N/A", "NONE", "UNKNOWN", "0", ""
+}
+
+def clean_vehicle_number(v: Any) -> Optional[str]:
+    """Validates and cleans Indian RTO vehicle registration number, discarding temporary/dummy values."""
+    if not v:
+        return None
+    s = str(v).strip().upper()
+    if s in DUMMY_VEHICLE_PATTERNS or s.startswith("NEW") or s.startswith("TEMP") or s.startswith("APPLIED"):
+        return None
+    s_clean = re.sub(r'[^A-Z0-9]', '', s)
+    if len(s_clean) < 6:
+        return None
+    return s
 
 def generate_vehicle_permutations(vehicle_no: str) -> List[str]:
     """
@@ -202,9 +217,23 @@ def generate_search_queries(facts: Dict[str, Any]) -> List[str]:
     queries = list(dict.fromkeys([q for q in queries if q]))
     return queries[:10]
 
+ENTERTAINMENT_BLACKLIST = [
+    'song', 'songs', 'hit songs', 'jukebox', 'music', 'lyrics', 'audio', 'video song', 'full song',
+    'album', 'singer', 'dj remix', 'remix', 'bhajan', 'aarti', 'katha', 'movie', 'film',
+    'movie trailer', 'official trailer', 'film trailer', 'teaser', 'comedy', 'episode', 'drama', 'dance', 'serial', 'actor', 'actress',
+    'cricket', 'ipl', 'horoscope', 'astrology', 'recipe', 'gameplay', 'vlog', 'entertainment',
+    'zee music', 't-series', 'speed records', 'tips official', 'sony music', 'aditya music',
+    'yrf', 'saregama', 'official music', 'official video', 'live streaming', 'status video'
+]
+
 def is_incident_relevant(title: str, snippet: str, url: str) -> bool:
     """Strictly verifies that a search result is related to road accidents, police FIRs, or news coverage."""
     text = f"{title} {snippet} {url}".lower()
+    
+    # 1. Immediate rejection if entertainment/music/film keywords are present
+    if any(b in text for b in ENTERTAINMENT_BLACKLIST):
+        return False
+        
     keywords = [
         'accident', 'crash', 'collision', 'hit', 'truck', 'bike', 'motorcycle', 'car',
         'fatal', 'death', 'injured', 'police', 'fir', 'road', 'highway', 'nh-', 'expressway',
@@ -335,7 +364,7 @@ def is_case_specific_match(result: Dict[str, Any], facts: Dict[str, Any]) -> boo
     """
     Strictly verifies if a search result specifically mentions this ingested claim's core parameters:
     1. Exact Vehicle Registration Plate (e.g. UP-85-AT-9988, RJ-09-GC-8889, UK-07-CD-2490)
-    2. Exact Insured / Driver / Victim / Passenger Name
+    2. Exact Insured / Driver full name in an accident/incident report
     3. Policy / Claim ID
     """
     title = result.get("title", "")
@@ -344,9 +373,13 @@ def is_case_specific_match(result: Dict[str, Any], facts: Dict[str, Any]) -> boo
     text = f"{title} {snippet} {url}".lower()
     clean_text = re.sub(r'[^A-Z0-9]', '', text.upper())
     
-    # 1. Vehicle Registration Match (including permutations)
+    if not is_incident_relevant(title, snippet, url):
+        return False
+        
+    # 1. Exact Vehicle Registration Match
     vehicles = facts.get("vehicle_numbers", [])
-    for v in vehicles:
+    valid_vehicles = [clean_vehicle_number(v) for v in vehicles if clean_vehicle_number(v)]
+    for v in valid_vehicles:
         perms = generate_vehicle_permutations(str(v))
         for p in perms:
             p_clean = re.sub(r'[^A-Z0-9]', '', p.upper())
@@ -355,17 +388,29 @@ def is_case_specific_match(result: Dict[str, Any], facts: Dict[str, Any]) -> boo
                 
     # 2. Party / Driver / Insured Name Match
     parties = []
-    if facts.get("parties_involved"):
-        parties.extend(facts.get("parties_involved"))
     if facts.get("insured_name"):
         parties.append(facts.get("insured_name"))
     if facts.get("driver_name"):
         parties.append(facts.get("driver_name"))
+    if facts.get("parties_involved"):
+        parties.extend(facts.get("parties_involved"))
         
     for p in parties:
         p_name = str(p).split("(")[0].strip().lower()
-        if p_name and len(p_name) >= 3 and p_name not in ["n/a", "unknown", "none"] and p_name in text:
-            return True
+        if not p_name or p_name in ["n/a", "unknown", "none"]:
+            continue
+            
+        tokens = [t for t in p_name.split() if len(t) > 2]
+        if len(tokens) >= 2:
+            # Full multi-word name match (e.g. "Lalit Parakh" or "Manoj Kumar Chhajer")
+            if p_name in text:
+                return True
+        else:
+            # Single name: must match name AND loss location / district
+            loc = (facts.get("accident_location_city") or facts.get("district_state") or facts.get("accident_location_region") or "").lower()
+            loc_clean = loc.split(",")[0].strip()
+            if p_name in text and loc_clean and loc_clean in text:
+                return True
 
     # 3. FIR / Claim ID Match
     claim_id = str(facts.get("claim_id", "")).lower()
@@ -516,22 +561,5 @@ def generate_synthetic_evidence(facts: Dict[str, Any], queries: List[str]) -> Li
             }
         ]
 
-    # 3. Default Kosi Kalan / General Benchmark
-    return [
-        {
-            "title": f"सड़क दुर्घटना: कोसी कलां में ट्रक की टक्कर से बाइक सवार की मौत",
-            "url": "https://www.jagran.com/uttar-pradesh/mathura-news-19726881.html",
-            "snippet": f"मथुरा के कोसी कलां NH-2 पर एक दर्दनाक हादसा हुआ। वहां तेज रफ्तार ट्रक ने पीछे से आ रही मोटरसाइकिल ({veh1}) को टक्कर मार दी। हादसे में बाइक चालक {party1} की मौके पर ही मौत हो गई। पुलिस स्टेशन {police_station} ने मामला दर्ज किया है।",
-            "publish_date": date_str,
-            "query_used": queries[0] if queries else "Mathura accident",
-            "source": "News"
-        },
-        {
-            "title": f"Mathura Accident: Fatal collision on NH-2 flyover near Kosi Kalan",
-            "url": "https://www.amarujala.com/uttar-pradesh/mathura",
-            "snippet": f"A speeding truck collision near Kosi Kalan NH-2 flyover claimed the life of a motorcyclist on Monday afternoon. The deceased was identified as {party1}, a resident of local area. According to witnesses, a truck rammed the motorcycle ({veh1}) from behind.",
-            "publish_date": date_str,
-            "query_used": queries[0] if queries else "Mathura accident",
-            "source": "News"
-        }
-    ]
+    # 3. For any other claim with no specific benchmark match, return empty list (never inject unrelated links)
+    return []
