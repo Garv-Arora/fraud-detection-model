@@ -169,12 +169,12 @@ def generate_evidence_excel(case_data: Dict[str, Any]) -> io.BytesIO:
     ws1.column_dimensions['C'].width = 85
     
     # ==========================================
-    # SHEET 2: Tera Bot 30 Headers Format
+    # SHEET 2: 30 Standard Fact Headers Format
     # ==========================================
-    ws_tb = wb.create_sheet(title="Tera Bot 30 Headers")
+    ws_tb = wb.create_sheet(title="30 Standard Headers")
     ws_tb.views.sheetView[0].showGridLines = True
     
-    ws_tb.cell(row=2, column=1, value="UNIVERSAL SOMPO — TERA BOT 30 STANDARD HEADERS AUDIT").font = title_font
+    ws_tb.cell(row=2, column=1, value="UNIVERSAL SOMPO — 30 STANDARD HEADERS AUDIT").font = title_font
     
     terabot_headers = [
         "Claim No ", "Insured Name", "Insured Address", "Insured contact no",

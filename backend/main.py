@@ -252,7 +252,7 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session, custom_queri
         db_session.add(AuditLog(
             case_id=case.id,
             action="Analysis Completed",
-            details=f"Analysis finished. Tera Bot 30-Header Summary generated. Risk: {risk_level}."
+            details=f"Analysis finished. 30-Header Claim Fact Summary generated. Risk: {risk_level}."
         ))
         
         db_session.commit()
@@ -636,7 +636,7 @@ async def upload_excel_claims(
                 db.add(AuditLog(
                     case_id=db_case.id,
                     action="Excel Ingestion",
-                    details=f"Claim imported from Tera Bot Excel workbook '{filename}'."
+                    details=f"Claim imported from Excel workbook '{filename}'."
                 ))
                 db.commit()
             else:

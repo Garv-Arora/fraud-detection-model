@@ -123,10 +123,10 @@ const Claim30HeaderMatrix = ({ facts, confidence = {}, isEditable = false, onCha
         <div>
           <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
             <Database size={18} style={{ color: 'var(--usgi-red)' }} />
-            Universal Sompo 30-Header RCU Claims Schema
+            Universal Sompo 30-Header Claims Schema
           </h4>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
-            Extracted and structured 30 Tera Bot entities from intimation documents, FIRs, and claim notes.
+            Extracted and structured 30 standard claim entities from intimation documents, FIRs, and claim notes.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -225,9 +225,6 @@ export default function App() {
   const [currentCase, setCurrentCase] = useState(null);
   const [loading, setLoading] = useState(false);
   const [syncingQuest, setSyncingQuest] = useState(false);
-  
-  // Role selector state
-  const [activeRole, setActiveRole] = useState('Investigator'); // Investigator, RCU Team
   const [errorPageMode, setErrorPageMode] = useState('branded'); // 'bare' or 'branded'
   
   // Search, Filter, and Scoring Modal states
@@ -727,12 +724,6 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         </div>
       </div>
 
-      {/* Role Indicator Banner */}
-      <div className="role-banner">
-        <UserCheck size={14} />
-        <span>UNIVERSAL SOMPO RCU SECURITY PORTAL • ACTIVE ROLE: {activeRole.toUpperCase()}</span>
-      </div>
-
       {/* Main Brand Header */}
       <header className="header">
         <div className="logo-section">
@@ -741,46 +732,29 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
           </div>
           <div>
             <h1 className="logo-text">Universal <span>Sompo</span></h1>
-            <div className="logo-sub">AI Claim Evidence Finder & Tera Bot Platform</div>
+            <div className="logo-sub">AI Claim Evidence Discovery Platform</div>
           </div>
         </div>
 
-        {/* Role Toggle & Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div className="role-badge-toggle">
-            <button 
-              className={`role-toggle-btn ${activeRole === 'Investigator' ? 'active' : ''}`}
-              onClick={() => setActiveRole('Investigator')}
-            >
-              Investigator
+        {/* Header Navigation Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button 
+            className={`btn ${currentView === 'workbench' ? 'btn-primary' : 'btn-secondary'}`} 
+            onClick={() => { setCurrentView('workbench'); setImportStatus(null); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Globe size={16} /> Search Lab
+          </button>
+          {currentView !== 'list' && (
+            <button className="btn btn-secondary" onClick={() => { setCurrentView('list'); setImportStatus(null); fetchCases(); }}>
+              <ArrowLeft size={16} /> Claims Portfolio
             </button>
-            <button 
-              className={`role-toggle-btn ${activeRole === 'RCU Team' ? 'active' : ''}`}
-              onClick={() => setActiveRole('RCU Team')}
-            >
-              RCU Team
+          )}
+          {currentView === 'list' && (
+            <button className="btn btn-primary" onClick={() => { setCurrentView('ingest'); setExtractedFacts(null); }}>
+              <Plus size={16} /> Ingest Claims
             </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              className={`btn ${currentView === 'workbench' ? 'btn-primary' : 'btn-secondary'}`} 
-              onClick={() => { setCurrentView('workbench'); setImportStatus(null); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Globe size={16} /> Search Lab
-            </button>
-            {currentView !== 'list' && (
-              <button className="btn btn-secondary" onClick={() => { setCurrentView('list'); setImportStatus(null); fetchCases(); }}>
-                <ArrowLeft size={16} /> Claims Portfolio
-              </button>
-            )}
-            {currentView === 'list' && activeRole === 'Investigator' && (
-              <button className="btn btn-primary" onClick={() => { setCurrentView('ingest'); setExtractedFacts(null); }}>
-                <Plus size={16} /> Ingest Claims
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
@@ -791,27 +765,25 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         {currentView === 'list' && (
           <div>
             {/* Quest API Sync Card (Default primary ingestion method) */}
-            {activeRole === 'Investigator' && (
-              <div className="card" style={{ borderLeft: '5px solid var(--primary)', background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%)', border: '1px solid #F3D0D6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <Database size={32} style={{ color: 'var(--primary)' }} />
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '4px', color: 'var(--text-primary)' }}>Quest Portal Claims Integration</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Synchronize active Own Damage (OD) claims and FIR files from Quest automatically via API connection.</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button className="btn btn-primary" onClick={handleQuestApiPull} disabled={syncingQuest}>
-                    {syncingQuest ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-                    {syncingQuest ? "Synchronizing..." : "Sync Quest Claims"}
-                  </button>
-                  <button className="btn btn-secondary" onClick={handleLoadSampleCases} disabled={syncingQuest}>
-                    <FileText size={16} />
-                    Load 4 Sample ZIP Cases
-                  </button>
+            <div className="card" style={{ borderLeft: '5px solid var(--primary)', background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%)', border: '1px solid #F3D0D6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', marginBottom: '32px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <Database size={32} style={{ color: 'var(--primary)' }} />
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '4px', color: 'var(--text-primary)' }}>Quest Portal Claims Integration</h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Synchronize active Own Damage (OD) claims and FIR files from Quest automatically via API connection.</p>
                 </div>
               </div>
-            )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn btn-primary" onClick={handleQuestApiPull} disabled={syncingQuest}>
+                  {syncingQuest ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                  {syncingQuest ? "Synchronizing..." : "Sync Quest Claims"}
+                </button>
+                <button className="btn btn-secondary" onClick={handleLoadSampleCases} disabled={syncingQuest}>
+                  <FileText size={16} />
+                  Load 4 Sample ZIP Cases
+                </button>
+              </div>
+            </div>
 
             {importStatus && (
               <div className="btn-success" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '13px', fontWeight: 'bold' }}>
@@ -889,7 +861,6 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
                   Synchronize active claims from Quest Portal API or upload the predefined Excel template.
                 </p>
-                {activeRole === 'Investigator' && (
                   <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                     <button className="btn btn-primary" onClick={handleQuestApiPull} disabled={syncingQuest}>
                       {syncingQuest ? <RefreshCw className="animate-spin" size={16} /> : <Database size={16} />}
@@ -899,7 +870,6 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                       Other Upload Options
                     </button>
                   </div>
-                )}
               </div>
             ) : (
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -982,11 +952,9 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                               <button className="btn btn-secondary" style={{ padding: '6px 10px' }}>
                                 <Eye size={14} />
                               </button>
-                              {activeRole === 'Investigator' && (
-                                <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={(e) => handleDeleteCase(c.claim_id, e)}>
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
+                              <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={(e) => handleDeleteCase(c.claim_id, e)}>
+                                <Trash2 size={14} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1044,7 +1012,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                         </a>
                       </div>
                       <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                        Upload PDF Intimation Sheets (`.pdf`), Tera Bot Excel Registries (`.xlsx`), or Case Archives (`.zip`). Claim IDs are extracted automatically.
+                        Upload PDF Intimation Sheets (`.pdf`), Excel Registries (`.xlsx`), or Case Archives (`.zip`). Claim IDs are extracted automatically.
                       </p>
                       
                       <div className="dropzone" style={{ padding: '36px 20px', borderStyle: 'dashed', cursor: 'pointer' }} onClick={() => document.getElementById('universal-file-input').click()}>
@@ -1113,7 +1081,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                       Extracted Facts Review (Human-In-The-Loop)
                     </h3>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px', margin: 0 }}>
-                      Verify all 30 extracted Tera Bot entity headers before launching multi-source public evidence search.
+                      Verify all 30 extracted claim fact headers before launching multi-source public evidence search.
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -1245,7 +1213,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                     maxHeight: '130px',
                     overflowY: 'auto'
                   }}>
-                    <div style={{ color: '#10B981' }}>&gt; [00:01] 30 Tera Bot Headers Extracted for Claim {currentCase.claim_id}</div>
+                    <div style={{ color: '#10B981' }}>&gt; [00:01] 30 Claim Fact Headers Extracted for Claim {currentCase.claim_id}</div>
                     <div style={{ color: '#38BDF8' }}>&gt; [00:02] Generated search query matrix ({currentCase.vehicle_numbers || 'RTO'}, {currentCase.loss_location || 'Corridor'})</div>
                     <div>&gt; [00:03] Fanout sent to Google News RSS index and regional accident databases (200 OK)</div>
                     <div>&gt; [00:04] Day T+1 morning print edition archives audited for {currentCase.district_state || currentCase.loss_location || 'local district'}</div>
@@ -1299,17 +1267,13 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                         {currentCase.pushback_status.includes('Success') ? 'Synced to Quest' : 'Push to Quest API'}
                       </button>
 
-                      {activeRole === 'Investigator' && (
-                        <>
-                          <div style={{ borderLeft: '1px solid var(--border-card)', height: '40px', margin: '0 8px' }}></div>
-                          <button className="btn btn-success" onClick={() => handleUpdateStatus('Investigated - Approved')}>
-                            <CheckCircle size={16} /> Approve Claim
-                          </button>
-                          <button className="btn btn-danger" onClick={() => handleUpdateStatus('Investigated - Flagged')}>
-                            <AlertTriangle size={16} /> Flag Fraud
-                          </button>
-                        </>
-                      )}
+                      <div style={{ borderLeft: '1px solid var(--border-card)', height: '40px', margin: '0 8px' }}></div>
+                      <button className="btn btn-success" onClick={() => handleUpdateStatus('Investigated - Approved')}>
+                        <CheckCircle size={16} /> Approve Claim
+                      </button>
+                      <button className="btn btn-danger" onClick={() => handleUpdateStatus('Investigated - Flagged')}>
+                        <AlertTriangle size={16} /> Flag Fraud
+                      </button>
                     </div>
                   </div>
 
@@ -1334,7 +1298,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
             {/* Split Screen Grid */}
             <div className="grid-main">
               
-              {/* Left Side Panel: Ingested Facts (Read-only for RCU Team, editable for Investigator if in review status) */}
+              {/* Left Side Panel: Ingested Facts */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div className="card">
                   <h3 style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-card)', paddingBottom: '10px' }}>Claim Facts Profile</h3>
@@ -1390,8 +1354,8 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                   </div>
                 </div>
 
-                {/* Photo Uploader (Only visible for Investigator role in write-mode) */}
-                {currentCase.status === 'Completed' && activeRole === 'Investigator' && (
+                {/* Photo Uploader */}
+                {currentCase.status === 'Completed' && (
                   <div className="card">
                     <h3 style={{ marginBottom: '12px' }}>Upload Claim Photos</h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px' }}>
