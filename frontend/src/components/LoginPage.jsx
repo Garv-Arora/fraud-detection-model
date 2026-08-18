@@ -85,18 +85,6 @@ export default function LoginPage({ onLogin }) {
       padding: '32px 16px',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      {/* Top Subtle Utility Note */}
-      <div style={{
-        marginBottom: '20px',
-        fontSize: '11.5px',
-        color: '#64748B',
-        letterSpacing: '0.3px',
-        textAlign: 'center',
-        fontWeight: '500'
-      }}>
-        IRDAI Regn. No. 134 • CIN: U66010MH2007PLC166770
-      </div>
-
       {/* Centered Clean Card */}
       <div style={{
         width: '100%',

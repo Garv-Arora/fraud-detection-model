@@ -759,7 +759,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
       {/* Official Top Utility Bar matching universalsompo.com */}
       <div className="top-utility-bar">
         <div className="jv-badge">
-          <span>IRDAI Regn. No. 134</span> | CIN: U66010MH2007PLC166770 | Joint Venture of Indian Bank, IOB, Karnataka Bank, Dabur Investments & Sompo Japan
+          Joint Venture of Indian Bank, IOB, Karnataka Bank, Dabur Investments & Sompo Japan
         </div>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <span>Toll Free Helpline: <strong style={{ color: '#FFFFFF' }}>1800 22 4030</strong></span>
