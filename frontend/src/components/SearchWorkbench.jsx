@@ -7,6 +7,8 @@ import {
   AlertTriangle, Eye, ClipboardList
 } from 'lucide-react';
 
+import GeminiAiSummaryCard from './GeminiAiSummaryCard';
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const PRESET_TEST_CASES = [
@@ -23,304 +25,48 @@ const PRESET_TEST_CASES = [
   {
     name: "Gangrar Chittorgarh Highway (RJ-09-GC-8889)",
     query: "RJ-09-GC-8889 Gangrar Chittorgarh trailer accident",
-    insured_name: "Lalit Parakh",
+    insured_name: "Rameshwar Lal Gurjar",
     vehicle_no: "RJ-09-GC-8889",
     location: "Gangrar, Chittorgarh",
-    date_str: "14-06-2026",
-    incident_keywords: "commercial trailer sudden brake rear collision",
-    desc: "Commercial trailer collision near Gangrar corridor on Rajasthan highway."
+    date_str: "18-05-2026",
+    incident_keywords: "Gangrar highway rollover police blotter",
+    desc: "Commercial trailer rollover on NH-79 Chittorgarh highway corridor."
   },
   {
-    name: "Bundi / Kota Freight Corridor (Mohan)",
-    query: "Mohan Bundi Kota highway trolla accident",
-    insured_name: "Mohan",
-    vehicle_no: "RJ-20-EA-4521",
-    location: "Bundi, Kota",
-    date_str: "17-06-2026",
-    incident_keywords: "freight trolla rollover highway blockage",
-    desc: "Freight transport incident on Bundi-Kota corridor."
+    name: "Barat Bus vs Tanker (CL21246240 Discrepancy)",
+    query: "Barat bus tanker collision wedding party casualty",
+    insured_name: "Kailash Chand Sharma",
+    vehicle_no: "RJ-14-PA-4421",
+    location: "Jaipur-Ajmer Expressway",
+    date_str: "12-04-2026",
+    incident_keywords: "wedding bus accident casualty mismatch",
+    desc: "Discrepancy audit: FIR mentions Barat bus with 8 casualties, claim filed as solo private car."
   },
   {
-    name: "Durgaganj Wedding Barat Procession (Arun Pal)",
-    query: "Durgaganj barat accident UP66K9912",
-    insured_name: "Arun Pal",
-    vehicle_no: "UP-66-K-9912",
-    location: "Durgaganj, Bhadohi",
-    date_str: "01-05-2026",
-    incident_keywords: "wedding barat procession collision hire and reward",
-    desc: "Real repudiated claim involving illegal commercial wedding hire."
+    name: "Lalit Dholpur Driver Implant (CL26140317)",
+    query: "Lalit Baretha Dholpur accident FIR",
+    insured_name: "Shri Lalit",
+    vehicle_no: "RJ-11-GA-3321",
+    location: "Baretha, Dholpur",
+    date_str: "05-06-2026",
+    incident_keywords: "driver substitute police charge sheet",
+    desc: "Driver implant fraud detection: Real driver fled scene, substitute driver put forward in claim."
   },
   {
-    name: "Chidderwala Instagram Pre-Inception (UK-07-CD-2490)",
-    query: "site:instagram.com UK-07-CD-2490 damage",
-    insured_name: "Chanda / Vansh",
-    vehicle_no: "UK-07-CD-2490",
-    location: "Chidderwala, Haridwar",
-    date_str: "11-07-2024",
+    name: "Pre-Inception Instagram Damage (CL24181742)",
+    query: "Vansh Instagram reel accident date",
+    insured_name: "Vansh Malhotra",
+    vehicle_no: "DL-01-AB-1234",
+    location: "Delhi-Noida Direct Flyway",
+    date_str: "12-07-2026",
     incident_keywords: "Instagram reel pre inception accident date",
     desc: "Date fraud identified via Instagram reel uploaded prior to policy inception."
   }
 ];
 
-const renderStructuredWorkbenchSummary = (summaryText) => {
+const renderStructuredWorkbenchSummary = (summaryText, onCopy = null, copied = false) => {
   if (!summaryText) return null;
-  const sections = summaryText.split(/###\s+/);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {sections.map((section, idx) => {
-        if (!section.trim()) return null;
-        const lines = section.trim().split('\n');
-        const header = lines[0].replace(/[*#]/g, '').trim();
-        const contentLines = lines.slice(1).join('\n').trim();
-
-        // 1. GEMINI-STYLE EXECUTIVE AI OVERVIEW CARD
-        if (header.includes('Executive AI Overview') || header.includes('Executive Web Search Summary') || header.includes('Key Observations')) {
-          const isZeroEvidence = contentLines.includes('0 public web pages') || contentLines.includes('0 verified') || contentLines.includes('0 case-specific');
-          return (
-            <div key={idx} className="card" style={{ 
-              background: '#FFFFFF', 
-              border: '1px solid #E2E8F0', 
-              borderTop: '4px solid transparent',
-              borderImage: 'linear-gradient(90deg, #4285F4 0%, #9B72CF 50%, #D96570 100%) 1',
-              padding: '22px 26px', 
-              boxShadow: '0 6px 20px rgba(0,0,0,0.04)' 
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ 
-                    background: 'linear-gradient(135deg, #4285F4 0%, #9B72CF 50%, #D96570 100%)', 
-                    color: '#FFFFFF', 
-                    padding: '4px 8px', 
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}>
-                    <Sparkles size={15} />
-                    <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.4px' }}>AI OVERVIEW</span>
-                  </div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
-                    Synthesized Public Evidence & Accident Briefing
-                  </h4>
-                </div>
-
-                <span className="badge" style={{ 
-                  background: isZeroEvidence ? '#FEF3C7' : '#D1FAE5', 
-                  color: isZeroEvidence ? '#B45309' : '#047857',
-                  fontSize: '11px',
-                  fontWeight: '700'
-                }}>
-                  {isZeroEvidence ? '0 Online Records / Field Check Recommended' : '✓ Real-Time Web Scraped Synthesis'}
-                </span>
-              </div>
-
-              <div style={{ fontSize: '13.5px', color: '#1E293B', lineHeight: '1.7', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {contentLines.split('\n\n').map((paragraph, pIdx) => {
-                  if (!paragraph.trim()) return null;
-                  if (paragraph.trim().startsWith('- ') || paragraph.trim().startsWith('• ')) {
-                    return (
-                      <div key={pIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {paragraph.split('\n').map((bullet, bIdx) => {
-                          const cleanBullet = bullet.replace(/^[•*\-\d.]+\s*/, '').trim();
-                          if (!cleanBullet) return null;
-                          return (
-                            <div key={bIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                              <span style={{ color: '#9B72CF', fontWeight: 'bold', fontSize: '16px', lineHeight: '1' }}>•</span>
-                              <span dangerouslySetInnerHTML={{ __html: cleanBullet.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-                  return (
-                    <p key={pIdx} style={{ margin: 0 }} dangerouslySetInnerHTML={{ __html: paragraph.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // 2. INCIDENT DYNAMICS & COLLISION SEQUENCE
-        if (header.includes('Dynamics') || header.includes('Sequence') || header.includes('Collision')) {
-          return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                <Zap size={18} style={{ color: '#F59E0B' }} /> Incident Dynamics & Collision Sequence
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!clean) return null;
-                  return (
-                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.5' }}>
-                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // 3. VEHICLES & IMPACTED PARTIES
-        if (header.includes('Vehicles') || header.includes('Parties') || header.includes('Objectivity')) {
-          return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                <Car size={18} style={{ color: '#2563EB' }} /> Vehicles & Impacted Parties Identified
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!clean) return null;
-                  return (
-                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.5' }}>
-                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // 4. LOCATION & SPATIAL CORRIDOR
-        if (header.includes('Location') || header.includes('Corridor') || header.includes('Jurisdiction')) {
-          let mapsUrl = null;
-          contentLines.split('\n').forEach(line => {
-            const m = line.match(/\[.*?\]\((https:\/\/www\.google\.com\/maps[^\)]*)\)/);
-            if (m) mapsUrl = m[1];
-          });
-
-          return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <MapPin size={18} style={{ color: '#10B981' }} /> Location, Corridor & Jurisdiction
-                </h4>
-                {mapsUrl && (
-                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '12px', color: '#2563EB', borderColor: '#BFDBFE', background: '#EFF6FF' }}>
-                    <MapPin size={14} /> Open in Google Maps <ExternalLink size={12} />
-                  </a>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!clean) return null;
-                  return (
-                    <div key={lIdx} style={{ fontSize: '12.5px', color: '#1E293B', padding: '10px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', lineHeight: '1.5' }}>
-                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\[Open Coordinates in Google Maps\]\(.*?\)/g, '').replace(/\[Open in Google Maps\]\(.*?\)/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // 5. CASUALTIES & EMERGENCY RESPONSE
-        if (header.includes('Casualties') || header.includes('Emergency') || header.includes('Medical')) {
-          return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                <Shield size={18} style={{ color: '#E11D48' }} /> Casualties & Emergency / Legal Status
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!clean) return null;
-                  return (
-                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.5' }}>
-                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // 6. DISCOVERED PUBLIC SOURCES & CITATIONS
-        if (header.includes('Sources') || header.includes('Citations') || header.includes('Bulletins')) {
-          return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Globe size={18} style={{ color: 'var(--usgi-red)' }} /> Discovered Public Sources & Citations
-                </h4>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified live source URLs</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const match = line.match(/\[(.*?)\]\((.*?)\)\s*[-—:]?\s*(.*)/);
-                  if (match) {
-                    const [, title, url, desc] = match;
-                    const cleanDesc = desc.replace(/^[*_]+|[*_]+$/g, '').trim();
-                    return (
-                      <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', marginBottom: '4px' }}>
-                            {title}
-                          </div>
-                          {cleanDesc && <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>{cleanDesc}</div>}
-                        </div>
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          View Source <ExternalLink size={12} />
-                        </a>
-                      </div>
-                    );
-                  }
-                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!clean) return null;
-                  return (
-                    <div key={lIdx} style={{ fontSize: '12.5px', color: '#475569', padding: '12px 14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // 7. RCU Investigation Risk Highlights / Takeaways
-        if (header.includes('Risk') || header.includes('Takeaways')) {
-          return (
-            <div key={idx} className="card" style={{ 
-              background: '#FFFBEB', 
-              border: '1px solid #FCD34D', 
-              borderLeft: '5px solid #F59E0B', 
-              padding: '20px 24px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.03)'
-            }}>
-              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#B45309', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AlertTriangle size={18} /> RCU Investigation Risk Takeaways
-              </h4>
-              <div style={{ fontSize: '13px', color: '#78350F', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!clean || clean.startsWith('Disclaimer')) return null;
-                  return (
-                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                      <span style={{ color: '#B45309', fontWeight: 'bold' }}>⚠️</span>
-                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        return null;
-      })}
-      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px', textAlign: 'center' }}>
-        *Disclaimer: This Gemini AI Overview is synthesized dynamically from scraped public web indexes and regional blotters using NLP information extraction.*
-      </div>
-    </div>
-  );
+  return <GeminiAiSummaryCard summaryText={summaryText} onCopy={onCopy} copied={copied} />;
 };
 
 export default function SearchWorkbench() {
