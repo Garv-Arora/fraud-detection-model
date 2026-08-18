@@ -10,6 +10,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
 from duckduckgo_search import DDGS
 
+logger = logging.getLogger(__name__)
+
 DUMMY_VEHICLE_PATTERNS = {
     "NEW", "NEW---", "APPLIED", "APPLIED FOR", "TEMP", "TEMPORARY", 
     "NOT REGISTERED", "UNREGISTERED", "N/A", "NONE", "UNKNOWN", "0", ""
@@ -758,11 +760,31 @@ def execute_search_workbench(
     results.sort(key=lambda x: x["relevance_score"], reverse=True)
     duration = time.time() - start_time
     
+    # Generate condensed structured AI summary of discovered findings
+    ai_summary = None
+    try:
+        from . import scorer
+        workbench_facts = {
+            "claim_id": "SEARCH-LAB",
+            "insured_name": insured_name or (query if query else "N/A"),
+            "driver_name": insured_name or (query if query else "N/A"),
+            "vehicle_numbers": [clean_vehicle_number(vehicle_no)] if clean_vehicle_number(vehicle_no) else ([vehicle_no] if vehicle_no else []),
+            "spot_of_accident": location or "Corridor Searched",
+            "loss_location": location or "Corridor Searched",
+            "district_state": location or "",
+            "accident_date_time": date_str or "",
+            "FIR_cause_narrative": incident_keywords or query or "Multi-engine public evidence search"
+        }
+        ai_summary = scorer.generate_ai_summary(workbench_facts, results, [], [])
+    except Exception as e:
+        logger.error(f"Failed to generate AI summary in search workbench: {e}")
+
     return {
         "query_executed": queries,
         "keywords_extracted": all_keywords,
         "total_results": len(results),
         "execution_time_seconds": round(duration, 2),
-        "results": results
+        "results": results,
+        "ai_summary": ai_summary
     }
 

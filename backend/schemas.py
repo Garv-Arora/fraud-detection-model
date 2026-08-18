@@ -204,5 +204,6 @@ class SearchWorkbenchResponse(BaseModel):
     total_results: int
     execution_time_seconds: float
     results: List[SearchWorkbenchResultItem]
+    ai_summary: Optional[str] = None
 
 

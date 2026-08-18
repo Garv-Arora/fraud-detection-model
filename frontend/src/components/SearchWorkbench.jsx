@@ -3,7 +3,8 @@ import {
   Search, Globe, ExternalLink, Shield, Zap, Sparkles, Filter, 
   Copy, Check, FileText, ChevronDown, ChevronUp, Terminal, 
   Share2, RefreshCw, Layers, MapPin, Calendar, Car, User, 
-  AlertCircle, Download, CheckCircle2, ArrowUpRight
+  AlertCircle, Download, CheckCircle2, ArrowUpRight, CheckCircle,
+  AlertTriangle, Eye, ClipboardList
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -61,6 +62,211 @@ const PRESET_TEST_CASES = [
   }
 ];
 
+const renderStructuredWorkbenchSummary = (summaryText) => {
+  if (!summaryText) return null;
+  const sections = summaryText.split(/###\s+/);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {sections.map((section, idx) => {
+        if (!section.trim()) return null;
+        const lines = section.trim().split('\n');
+        const header = lines[0].replace(/[*#]/g, '').trim();
+        const contentLines = lines.slice(1).join('\n').trim();
+
+        // 1. Executive Web Search Summary Card
+        if (header.includes('Executive Web Search Summary') || header.includes('Key Observations')) {
+          const isZeroEvidence = contentLines.includes('0 public web pages') || contentLines.includes('0 verified') || contentLines.includes('0 case-specific');
+          return (
+            <div key={idx} className="card" style={{ 
+              background: '#FFFFFF', 
+              border: '1px solid #E2E8F0', 
+              borderLeft: '5px solid var(--usgi-red)', 
+              padding: '20px 24px', 
+              boxShadow: '0 4px 16px rgba(0,0,0,0.03)' 
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <h4 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--usgi-red)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Shield size={18} /> Executive Web Search Summary
+                </h4>
+                <span className="badge" style={{ 
+                  background: isZeroEvidence ? '#FEF3C7' : '#D1FAE5', 
+                  color: isZeroEvidence ? '#B45309' : '#047857',
+                  fontSize: '11px',
+                  fontWeight: '700'
+                }}>
+                  {isZeroEvidence ? '0 Online False Positives / Clean Search' : '✓ Corroborating Web Records Identified'}
+                </span>
+              </div>
+              <div style={{ fontSize: '13px', color: '#1E293B', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const cleanLine = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!cleanLine) return null;
+                  return (
+                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ color: 'var(--usgi-red)', fontWeight: 'bold', fontSize: '16px', lineHeight: '1' }}>•</span>
+                      <span dangerouslySetInnerHTML={{ __html: cleanLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // 2. Objectivity & Fact Verification (4-Card KPI Grid)
+        if (header.includes('Objectivity') || header.includes('Fact Verification')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <CheckCircle size={18} style={{ color: '#10B981' }} /> Objectivity & Incident Fact Corroboration
+                </h4>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cross-referenced against searched parameters</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+
+                  const isFlagged = clean.includes('🔴') || clean.toLowerCase().includes('implant') || clean.toLowerCase().includes('barat') || clean.toLowerCase().includes('discrepancy') || clean.toLowerCase().includes('mismatch');
+                  const isVerified = clean.toLowerCase().includes('verified') || clean.toLowerCase().includes('corroborated') || clean.toLowerCase().includes('match') || clean.toLowerCase().includes('consistent');
+
+                  const statusBg = isFlagged ? '#FEE2E2' : isVerified ? '#D1FAE5' : '#F1F5F9';
+                  const statusColor = isFlagged ? '#CC0022' : isVerified ? '#047857' : '#475569';
+                  const statusLabel = isFlagged ? '🔴 Discrepancy Flag' : isVerified ? '✓ Verified' : 'Pending Verification';
+
+                  return (
+                    <div key={lIdx} style={{ background: '#F8FAFC', border: `1px solid ${isFlagged ? '#FECACA' : '#E2E8F0'}`, borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="badge" style={{ background: statusBg, color: statusColor, fontSize: '10px', fontWeight: '700' }}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#1E293B', lineHeight: '1.4' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Location & Spatial Feasibility Verification
+        if (header.includes('Location') || header.includes('Feasibility')) {
+          let mapsUrl = null;
+          contentLines.split('\n').forEach(line => {
+            const m = line.match(/\[.*?\]\((https:\/\/www\.google\.com\/maps[^\)]*)\)/);
+            if (m) mapsUrl = m[1];
+          });
+
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <MapPin size={18} style={{ color: '#2563EB' }} /> Location & Corridor Feasibility Verification
+                </h4>
+                {mapsUrl && (
+                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '12px', color: '#2563EB', borderColor: '#BFDBFE', background: '#EFF6FF' }}>
+                    <MapPin size={14} /> Open in Google Maps <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+                  return (
+                    <div key={lIdx} style={{ fontSize: '12.5px', color: '#1E293B', padding: '10px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', lineHeight: '1.5' }}>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\[Verify on Google Maps\]\(.*?\)/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // 4. Key Web Evidence Bulletins
+        if (header.includes('Key Web Evidence') || header.includes('Bulletins')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Search size={18} style={{ color: 'var(--usgi-red)' }} /> Key Web Evidence Bulletins
+                </h4>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified live source URLs</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const match = line.match(/\[(.*?)\]\((.*?)\)\s*[-—:]?\s*(.*)/);
+                  if (match) {
+                    const [, title, url, desc] = match;
+                    const cleanDesc = desc.replace(/^[*_]+|[*_]+$/g, '').trim();
+                    return (
+                      <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', marginBottom: '4px' }}>
+                            {title}
+                          </div>
+                          {cleanDesc && <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>{cleanDesc}</div>}
+                        </div>
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          View Source <ExternalLink size={12} />
+                        </a>
+                      </div>
+                    );
+                  }
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+                  return (
+                    <div key={lIdx} style={{ fontSize: '12.5px', color: '#475569', padding: '12px 14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // 5. RCU Investigation Risk Highlights
+        if (header.includes('Risk Highlights') || header.includes('Highlights')) {
+          const hasHighFlags = contentLines.includes('Driver Implant') || contentLines.includes('Pre-Inception') || contentLines.includes('Commercial') || contentLines.includes('Variance');
+          return (
+            <div key={idx} className="card" style={{ 
+              background: hasHighFlags ? '#FEF2F2' : '#FFFBEB', 
+              border: `1px solid ${hasHighFlags ? '#FECACA' : '#FCD34D'}`, 
+              borderLeft: `5px solid ${hasHighFlags ? 'var(--usgi-red)' : '#F59E0B'}`, 
+              padding: '20px 24px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.03)'
+            }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: hasHighFlags ? 'var(--usgi-red)' : '#B45309', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={18} /> RCU Investigation Risk Takeaways
+              </h4>
+              <div style={{ fontSize: '13px', color: hasHighFlags ? '#991B1B' : '#78350F', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean || clean.startsWith('Disclaimer')) return null;
+                  return (
+                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <span style={{ color: hasHighFlags ? 'var(--usgi-red)' : '#B45309', fontWeight: 'bold' }}>⚠️</span>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        return null;
+      })}
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px', textAlign: 'center' }}>
+        *Disclaimer: This summary is generated dynamically using LLM evidence analysis of crawled search index data. All decisions remain the responsibility of authorized Universal Sompo investigators.*
+      </div>
+    </div>
+  );
+};
+
 export default function SearchWorkbench() {
   const [searchMode, setSearchMode] = useState('freeform'); // 'freeform' or 'structured'
   const [freeformQuery, setFreeformQuery] = useState('Jaipur Harmada dumper 17 vehicles accident');
@@ -77,11 +283,15 @@ export default function SearchWorkbench() {
   const [deepScrape, setDeepScrape] = useState(true);
   const [activeCategory, setActiveCategory] = useState('ALL'); // 'ALL', 'News', 'Web', 'Instagram', 'YouTube'
   
+  // Results view sub-tab
+  const [workbenchTab, setWorkbenchTab] = useState('ai_summary'); // 'ai_summary', 'records', 'telemetry'
+  
   // State
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
   const [expandedArticles, setExpandedArticles] = useState({});
   const [copiedUrl, setCopiedUrl] = useState(null);
+  const [copiedSummary, setCopiedSummary] = useState(false);
   const [error, setError] = useState(null);
 
   const handleSearch = async (customParams = null) => {
@@ -115,6 +325,11 @@ export default function SearchWorkbench() {
 
       const data = await res.json();
       setResponse(data);
+      if (data.ai_summary) {
+        setWorkbenchTab('ai_summary');
+      } else {
+        setWorkbenchTab('records');
+      }
     } catch (err) {
       console.error("Search workbench error:", err);
       setError(err.message || "Failed to execute search across public sources.");
@@ -193,14 +408,14 @@ export default function SearchWorkbench() {
                 <span style={{ fontSize: '12px', fontWeight: '800', letterSpacing: '0.5px' }}>SEARCH LAB</span>
               </div>
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600' }}>
-                Multi-Engine Real-Time Internet Search Discovery
+                Multi-Engine Real-Time Public Evidence & AI Synthesis Playground
               </span>
             </div>
             <h2 style={{ fontSize: '22px', fontWeight: '800', margin: '0 0 6px 0', color: '#FFFFFF' }}>
               Universal Sompo RCU Public Evidence Search Workbench
             </h2>
             <p style={{ fontSize: '13px', color: '#CBD5E1', margin: 0, maxWidth: '750px', lineHeight: '1.5' }}>
-              Test and benchmark our real-time accident search engine. Search Google News RSS, DuckDuckGo, Bing, Instagram Reels, YouTube blotters, and regional Hindi daily archives for any specific claim.
+              Test and benchmark our real-time accident search engine. Search Google News RSS, DuckDuckGo, Bing, Instagram Reels, YouTube blotters, and regional Hindi daily archives for any specific claim with instant structured AI evidence synthesis.
             </p>
           </div>
 
@@ -341,10 +556,10 @@ export default function SearchWorkbench() {
                 className="btn btn-primary"
                 onClick={() => handleSearch()}
                 disabled={loading || !freeformQuery.trim()}
-                style={{ minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                style={{ minWidth: '170px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
                 {loading ? <RefreshCw size={16} className="spin" /> : <Search size={16} />}
-                {loading ? 'Searching...' : 'Search Internet'}
+                {loading ? 'Searching & Synthesizing...' : 'Search & Synthesize'}
               </button>
             </div>
           </div>
@@ -420,10 +635,10 @@ export default function SearchWorkbench() {
                   className="btn btn-primary"
                   onClick={() => handleSearch()}
                   disabled={loading}
-                  style={{ minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  style={{ minWidth: '170px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                   {loading ? <RefreshCw size={16} className="spin" /> : <Search size={16} />}
-                  {loading ? 'Searching...' : 'Run Matrix Search'}
+                  {loading ? 'Searching & Synthesizing...' : 'Run Matrix Search'}
                 </button>
               </div>
             </div>
@@ -441,13 +656,13 @@ export default function SearchWorkbench() {
       {/* Results Section */}
       {response && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Telemetry Summary Strip */}
+          {/* Top Results Navigation Strip */}
           <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '18px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
-                    Search Execution Results ({response.total_results} Discovered Public Web Records)
+                    Search Execution Findings ({response.total_results} Discovered Public Web Records)
                   </h3>
                   <span className="badge" style={{ background: '#D1FAE5', color: '#047857', fontSize: '11px', fontWeight: '700' }}>
                     ⚡ {response.execution_time_seconds}s
@@ -484,197 +699,271 @@ export default function SearchWorkbench() {
               </div>
             </div>
 
-            {/* Fanned out queries dropdown */}
-            <div style={{ marginTop: '14px', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Terminal size={14} color="var(--usgi-red)" />
-                Fanned-Out Search Queries ({response.query_executed?.length} Parallel Queries Executed):
+            {/* Sub-Tabs: AI Summary vs Raw Records vs Query Matrix */}
+            <div className="tab-container" style={{ marginTop: '16px', marginBottom: '0', borderBottom: '1px solid #E2E8F0', paddingBottom: '0' }}>
+              <button 
+                className={`tab-btn ${workbenchTab === 'ai_summary' ? 'active' : ''}`} 
+                onClick={() => setWorkbenchTab('ai_summary')}
+              >
+                <Sparkles size={16} style={{ color: 'var(--usgi-red)' }} /> Condensed AI Evidence Summary
+              </button>
+              <button 
+                className={`tab-btn ${workbenchTab === 'records' ? 'active' : ''}`} 
+                onClick={() => setWorkbenchTab('records')}
+              >
+                <Globe size={16} /> Discovered Web Records ({response.results?.length || 0})
+              </button>
+              <button 
+                className={`tab-btn ${workbenchTab === 'telemetry' ? 'active' : ''}`} 
+                onClick={() => setWorkbenchTab('telemetry')}
+              >
+                <Terminal size={16} /> Query Fanout Matrix ({response.query_executed?.length || 0})
+              </button>
+            </div>
+          </div>
+
+          {/* VIEW TAB 1: CONDENSED STRUCTURED AI SUMMARY */}
+          {workbenchTab === 'ai_summary' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                    <Sparkles size={18} style={{ color: 'var(--usgi-red)' }} />
+                    Live AI Evidence Synthesis & Investigation Breakdown
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+                    Synthesized from {response.results?.length || 0} real-time multi-engine search results across Google News, DuckDuckGo, Bing, social media, and ePapers.
+                  </p>
+                </div>
+                {response.ai_summary && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(response.ai_summary);
+                      setCopiedSummary(true);
+                      setTimeout(() => setCopiedSummary(false), 2000);
+                    }}
+                    style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {copiedSummary ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
+                    {copiedSummary ? 'Summary Copied!' : 'Copy Summary'}
+                  </button>
+                )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {response.query_executed?.map((q, qIdx) => (
-                  <span key={qIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '11.5px', color: '#334155', padding: '3px 8px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                    {q}
-                  </span>
+
+              {response.ai_summary ? (
+                renderStructuredWorkbenchSummary(response.ai_summary)
+              ) : (
+                <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '30px', textAlign: 'center' }}>
+                  <Shield size={32} color="var(--usgi-red)" style={{ margin: '0 auto 10px auto' }} />
+                  <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '6px' }}>
+                    0 Case-Specific Public Web Records Found
+                  </h4>
+                  <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '500px', margin: '0 auto' }}>
+                    No public news articles or media footprints were discovered specifically matching this accident. Standard RCU protocol recommends physical spot verification and police station blotter check.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW TAB 2: DISCOVERED WEB RECORDS LIST */}
+          {workbenchTab === 'records' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Category Filter Chips */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['ALL', 'News', 'Web', 'Instagram', 'YouTube'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: activeCategory === cat ? 'var(--usgi-red)' : '#E2E8F0',
+                      color: activeCategory === cat ? '#FFFFFF' : '#475569',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {cat === 'ALL' ? `All Sources (${response.results?.length || 0})` : cat}
+                  </button>
                 ))}
               </div>
-            </div>
-          </div>
 
-          {/* Category Filter Chips */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {['ALL', 'News', 'Web', 'Instagram', 'YouTube'].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: activeCategory === cat ? 'var(--usgi-red)' : '#E2E8F0',
-                  color: activeCategory === cat ? '#FFFFFF' : '#475569',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {cat === 'ALL' ? `All Sources (${response.results?.length || 0})` : cat}
-              </button>
-            ))}
-          </div>
+              {filteredResults.length === 0 ? (
+                <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '40px', textAlign: 'center' }}>
+                  <Globe size={36} color="#94A3B8" style={{ margin: '0 auto 12px auto' }} />
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>
+                    0 Web Records Found for Selected Filter
+                  </h4>
+                  <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '500px', margin: '0 auto' }}>
+                    Try switching categories or expanding your search query terms to find related media bulletins.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {filteredResults.map((item, idx) => {
+                    const isExpanded = expandedArticles[idx];
+                    const isCopied = copiedUrl === item.url;
 
-          {/* Results Cards List */}
-          {filteredResults.length === 0 ? (
-            <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '40px', textAlign: 'center' }}>
-              <Globe size={36} color="#94A3B8" style={{ margin: '0 auto 12px auto' }} />
-              <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>
-                0 Web Records Found for Selected Filter
-              </h4>
-              <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '500px', margin: '0 auto' }}>
-                Try switching categories or expanding your search query terms to find related media bulletins.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {filteredResults.map((item, idx) => {
-                const isExpanded = expandedArticles[idx];
-                const isCopied = copiedUrl === item.url;
+                    return (
+                      <div key={idx} className="card" style={{ 
+                        background: '#FFFFFF', 
+                        border: '1px solid #E2E8F0', 
+                        borderRadius: '10px', 
+                        padding: '18px 22px',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}>
+                        {/* Card Header: Source & Domain & Relevance */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="badge" style={{ 
+                              background: item.source === 'Instagram' ? '#FDF2F8' : item.source === 'YouTube' ? '#FEF2F2' : '#EFF6FF', 
+                              color: item.source === 'Instagram' ? '#DB2777' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
+                              fontSize: '11px',
+                              fontWeight: '800'
+                            }}>
+                              {item.source}
+                            </span>
 
-                return (
-                  <div key={idx} className="card" style={{ 
-                    background: '#FFFFFF', 
-                    border: '1px solid #E2E8F0', 
-                    borderRadius: '10px', 
-                    padding: '18px 22px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px'
-                  }}>
-                    {/* Card Header: Source & Domain & Relevance */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="badge" style={{ 
-                          background: item.source === 'Instagram' ? '#FDF2F8' : item.source === 'YouTube' ? '#FEF2F2' : '#EFF6FF', 
-                          color: item.source === 'Instagram' ? '#DB2777' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
-                          fontSize: '11px',
-                          fontWeight: '800'
-                        }}>
-                          {item.source}
-                        </span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Globe size={13} color="#64748B" /> {item.domain}
+                            </span>
 
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Globe size={13} color="#64748B" /> {item.domain}
-                        </span>
+                            {item.publish_date && (
+                              <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                                • {item.publish_date}
+                              </span>
+                            )}
+                          </div>
 
-                        {item.publish_date && (
-                          <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-                            • {item.publish_date}
-                          </span>
-                        )}
-                      </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#F8FAFC', padding: '3px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Relevance:</span>
+                              <span style={{ fontSize: '11px', fontWeight: '800', color: item.relevance_score > 50 ? '#059669' : '#D97706' }}>
+                                {item.relevance_score}%
+                              </span>
+                            </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#F8FAFC', padding: '3px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                          <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Relevance:</span>
-                          <span style={{ fontSize: '11px', fontWeight: '800', color: item.relevance_score > 50 ? '#059669' : '#D97706' }}>
-                            {item.relevance_score}%
-                          </span>
+                            <button
+                              onClick={() => copyToClipboard(item.url)}
+                              title="Copy Direct Link"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: isCopied ? '#059669' : '#64748B', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+                            >
+                              {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                              {isCopied ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
                         </div>
 
-                        <button
-                          onClick={() => copyToClipboard(item.url)}
-                          title="Copy Direct Link"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: isCopied ? '#059669' : '#64748B', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
-                        >
-                          {isCopied ? <Check size={14} /> : <Copy size={14} />}
-                          {isCopied ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
-                    </div>
+                        {/* Card Title */}
+                        <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: 0, lineHeight: '1.4' }}>
+                          <a 
+                            href={item.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{ color: '#0F172A', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--usgi-red)'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = '#0F172A'}
+                          >
+                            {item.title}
+                            <ArrowUpRight size={15} color="var(--usgi-red)" />
+                          </a>
+                        </h4>
 
-                    {/* Card Title */}
-                    <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: 0, lineHeight: '1.4' }}>
-                      <a 
-                        href={item.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        style={{ color: '#0F172A', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--usgi-red)'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = '#0F172A'}
-                      >
-                        {item.title}
-                        <ArrowUpRight size={15} color="var(--usgi-red)" />
-                      </a>
-                    </h4>
+                        {/* URL link */}
+                        <div style={{ fontSize: '11.5px', color: 'var(--usgi-red)', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                          {item.url}
+                        </div>
 
-                    {/* URL link */}
-                    <div style={{ fontSize: '11.5px', color: 'var(--usgi-red)', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                      {item.url}
-                    </div>
+                        {/* Snippet */}
+                        <p style={{ fontSize: '13px', color: '#334155', lineHeight: '1.5', margin: 0 }}>
+                          {item.snippet}
+                        </p>
 
-                    {/* Snippet */}
-                    <p style={{ fontSize: '13px', color: '#334155', lineHeight: '1.5', margin: 0 }}>
-                      {item.snippet}
-                    </p>
+                        {/* Matched keywords pills */}
+                        {item.matched_keywords && item.matched_keywords.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Matched:</span>
+                            {item.matched_keywords.map((kw, mIdx) => (
+                              <span key={mIdx} style={{ background: '#FEF3C7', color: '#92400E', fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+                        )}
 
-                    {/* Matched keywords pills */}
-                    {item.matched_keywords && item.matched_keywords.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                        <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Matched:</span>
-                        {item.matched_keywords.map((kw, mIdx) => (
-                          <span key={mIdx} style={{ background: '#FEF3C7', color: '#92400E', fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
-                            {kw}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                        {/* Deep Scraped Body Expander */}
+                        {item.full_article_text && (
+                          <div style={{ marginTop: '8px' }}>
+                            <button
+                              onClick={() => toggleArticleExpand(idx)}
+                              style={{
+                                background: '#F1F5F9',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '5px 10px',
+                                fontSize: '11.5px',
+                                fontWeight: '700',
+                                color: '#334155',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <FileText size={13} />
+                              {isExpanded ? 'Hide Deep Scraped Body Text' : 'View Deep Scraped Full Body Text'}
+                              {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
 
-                    {/* Deep Scraped Body Expander */}
-                    {item.full_article_text && (
-                      <div style={{ marginTop: '8px' }}>
-                        <button
-                          onClick={() => toggleArticleExpand(idx)}
-                          style={{
-                            background: '#F1F5F9',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: '700',
-                            color: '#334155',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          <FileText size={13} />
-                          {isExpanded ? 'Hide Deep Scraped Body Text' : 'View Deep Scraped Full Body Text'}
-                          {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                        </button>
-
-                        {isExpanded && (
-                          <div style={{ 
-                            marginTop: '8px', 
-                            background: '#F8FAFC', 
-                            border: '1px solid #E2E8F0', 
-                            borderRadius: '6px', 
-                            padding: '12px 14px', 
-                            fontSize: '12px', 
-                            color: '#1E293B', 
-                            lineHeight: '1.6', 
-                            maxHeight: '300px', 
-                            overflowY: 'auto' 
-                          }}>
-                            {item.full_article_text}
+                            {isExpanded && (
+                              <div style={{ 
+                                marginTop: '8px', 
+                                background: '#F8FAFC', 
+                                border: '1px solid #E2E8F0', 
+                                borderRadius: '6px', 
+                                padding: '12px 14px', 
+                                fontSize: '12px', 
+                                color: '#1E293B', 
+                                lineHeight: '1.6', 
+                                maxHeight: '300px', 
+                                overflowY: 'auto' 
+                              }}>
+                                {item.full_article_text}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW TAB 3: QUERY FANOUT TELEMETRY MATRIX */}
+          {workbenchTab === 'telemetry' && (
+            <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Terminal size={16} color="var(--usgi-red)" />
+                Fanned-Out Multi-Engine Queries Executed ({response.query_executed?.length} Parallel Queries):
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                {response.query_executed?.map((q, qIdx) => (
+                  <div key={qIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ color: 'var(--usgi-red)', fontWeight: 'bold', fontSize: '12px' }}>#{qIdx + 1}</span>
+                    <span style={{ fontSize: '12px', color: '#334155', fontFamily: 'monospace', wordBreak: 'break-all' }}>{q}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           )}
         </div>
