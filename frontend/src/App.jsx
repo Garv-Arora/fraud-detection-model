@@ -22,39 +22,68 @@ const renderStructuredGptSummary = (summaryText) => {
         const header = lines[0].replace(/[*#]/g, '').trim();
         const contentLines = lines.slice(1).join('\n').trim();
 
-        // 1. Executive Web Search Summary Card
-        if (header.includes('Executive Web Search Summary') || header.includes('Key Observations')) {
-          const isZeroEvidence = contentLines.includes('0 public web pages') || contentLines.includes('0 verified');
+        // 1. GEMINI-STYLE EXECUTIVE AI OVERVIEW
+        if (header.includes('Executive AI Overview') || header.includes('Executive Web Search Summary') || header.includes('Key Observations')) {
+          const isZeroEvidence = contentLines.includes('0 public web pages') || contentLines.includes('0 verified') || contentLines.includes('0 case-specific');
           return (
             <div key={idx} className="card" style={{ 
               background: '#FFFFFF', 
               border: '1px solid #E2E8F0', 
-              borderLeft: '5px solid var(--usgi-red)', 
-              padding: '20px 24px', 
-              boxShadow: '0 4px 20px rgba(0,0,0,0.04)' 
+              borderTop: '4px solid transparent',
+              borderImage: 'linear-gradient(90deg, #4285F4 0%, #9B72CF 50%, #D96570 100%) 1',
+              padding: '22px 26px', 
+              boxShadow: '0 6px 20px rgba(0,0,0,0.04)' 
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                <h4 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--usgi-red)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Shield size={18} /> Executive Web Search Summary
-                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ 
+                    background: 'linear-gradient(135deg, #4285F4 0%, #9B72CF 50%, #D96570 100%)', 
+                    color: '#FFFFFF', 
+                    padding: '4px 8px', 
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <Sparkles size={15} />
+                    <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.4px' }}>AI OVERVIEW</span>
+                  </div>
+                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+                    Synthesized Public Evidence & Accident Briefing
+                  </h4>
+                </div>
+
                 <span className="badge" style={{ 
                   background: isZeroEvidence ? '#FEF3C7' : '#D1FAE5', 
                   color: isZeroEvidence ? '#B45309' : '#047857',
                   fontSize: '11px',
                   fontWeight: '700'
                 }}>
-                  {isZeroEvidence ? '0 Online False Positives / Clean Search' : '✓ Corroborating Web Records Identified'}
+                  {isZeroEvidence ? '0 Online Records / Field Check Recommended' : '✓ Real-Time Web Scraped Synthesis'}
                 </span>
               </div>
-              <div style={{ fontSize: '13px', color: '#1E293B', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {contentLines.split('\n').map((line, lIdx) => {
-                  const cleanLine = line.replace(/^[•*\-\d.]+\s*/, '').trim();
-                  if (!cleanLine) return null;
+
+              <div style={{ fontSize: '13.5px', color: '#1E293B', lineHeight: '1.7', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contentLines.split('\n\n').map((paragraph, pIdx) => {
+                  if (!paragraph.trim()) return null;
+                  if (paragraph.trim().startsWith('- ') || paragraph.trim().startsWith('• ')) {
+                    return (
+                      <div key={pIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {paragraph.split('\n').map((bullet, bIdx) => {
+                          const cleanBullet = bullet.replace(/^[•*\-\d.]+\s*/, '').trim();
+                          if (!cleanBullet) return null;
+                          return (
+                            <div key={bIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                              <span style={{ color: '#9B72CF', fontWeight: 'bold', fontSize: '16px', lineHeight: '1' }}>•</span>
+                              <span dangerouslySetInnerHTML={{ __html: cleanBullet.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                      <span style={{ color: 'var(--usgi-red)', fontWeight: 'bold', fontSize: '16px', lineHeight: '1' }}>•</span>
-                      <span dangerouslySetInnerHTML={{ __html: cleanLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    </div>
+                    <p key={pIdx} style={{ margin: 0 }} dangerouslySetInnerHTML={{ __html: paragraph.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                   );
                 })}
               </div>
@@ -62,36 +91,20 @@ const renderStructuredGptSummary = (summaryText) => {
           );
         }
 
-        // 2. Objectivity & Fact Verification (4-Card KPI Grid)
-        if (header.includes('Objectivity') || header.includes('Fact Verification')) {
+        // 2. INCIDENT DYNAMICS & COLLISION SEQUENCE
+        if (header.includes('Dynamics') || header.includes('Sequence') || header.includes('Collision')) {
           return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <CheckCircle size={18} style={{ color: '#10B981' }} /> Objectivity & Fact Verification
-                </h4>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cross-referenced against FIR & Crawled Blotters</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <AlertTriangle size={18} style={{ color: '#F59E0B' }} /> Incident Dynamics & Collision Sequence
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
                   const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
                   if (!clean) return null;
-
-                  const isFlagged = clean.includes('🔴') || clean.toLowerCase().includes('implant') || clean.toLowerCase().includes('barat') || clean.toLowerCase().includes('discrepancy') || clean.toLowerCase().includes('mismatch');
-                  const isVerified = clean.toLowerCase().includes('verified') || clean.toLowerCase().includes('corroborated') || clean.toLowerCase().includes('match') || clean.toLowerCase().includes('consistent');
-
-                  const statusBg = isFlagged ? '#FEE2E2' : isVerified ? '#D1FAE5' : '#F1F5F9';
-                  const statusColor = isFlagged ? '#CC0022' : isVerified ? '#047857' : '#475569';
-                  const statusLabel = isFlagged ? '🔴 Discrepancy Flag' : isVerified ? '✓ Verified' : 'Pending Verification';
-
                   return (
-                    <div key={lIdx} style={{ background: '#F8FAFC', border: `1px solid ${isFlagged ? '#FECACA' : '#E2E8F0'}`, borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="badge" style={{ background: statusBg, color: statusColor, fontSize: '10px', fontWeight: '700' }}>
-                          {statusLabel}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '12.5px', color: '#1E293B', lineHeight: '1.4' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.5' }}>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                     </div>
                   );
                 })}
@@ -100,8 +113,30 @@ const renderStructuredGptSummary = (summaryText) => {
           );
         }
 
-        // 3. Location & Spatial Feasibility Verification
-        if (header.includes('Location') || header.includes('Feasibility')) {
+        // 3. VEHICLES & IMPACTED PARTIES
+        if (header.includes('Vehicles') || header.includes('Parties') || header.includes('Objectivity')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <CheckCircle size={18} style={{ color: '#2563EB' }} /> Vehicles & Impacted Parties Identified
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+                  return (
+                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.5' }}>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // 4. LOCATION & SPATIAL CORRIDOR
+        if (header.includes('Location') || header.includes('Corridor') || header.includes('Jurisdiction') || header.includes('Feasibility')) {
           let mapsUrl = null;
           contentLines.split('\n').forEach(line => {
             const m = line.match(/\[.*?\]\((https:\/\/www\.google\.com\/maps[^\)]*)\)/);
@@ -109,10 +144,10 @@ const renderStructuredGptSummary = (summaryText) => {
           });
 
           return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
                 <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <MapPin size={18} style={{ color: '#2563EB' }} /> Location & Spatial Feasibility Verification
+                  <MapPin size={18} style={{ color: '#10B981' }} /> Location, Corridor & Jurisdiction
                 </h4>
                 {mapsUrl && (
                   <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '12px', color: '#2563EB', borderColor: '#BFDBFE', background: '#EFF6FF' }}>
@@ -120,13 +155,13 @@ const renderStructuredGptSummary = (summaryText) => {
                   </a>
                 )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
                   const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
                   if (!clean) return null;
                   return (
                     <div key={lIdx} style={{ fontSize: '12.5px', color: '#1E293B', padding: '10px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', lineHeight: '1.5' }}>
-                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\[Verify on Google Maps\]\(.*?\)/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\[Open Coordinates in Google Maps\]\(.*?\)/g, '').replace(/\[Open in Google Maps\]\(.*?\)/g, '').replace(/\[Verify on Google Maps\]\(.*?\)/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                     </div>
                   );
                 })}
@@ -135,13 +170,35 @@ const renderStructuredGptSummary = (summaryText) => {
           );
         }
 
-        // 4. Key Web Evidence Bulletins
-        if (header.includes('Key Web Evidence') || header.includes('Bulletins')) {
+        // 5. CASUALTIES & EMERGENCY RESPONSE
+        if (header.includes('Casualties') || header.includes('Emergency') || header.includes('Medical')) {
           return (
-            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <Shield size={18} style={{ color: '#E11D48' }} /> Casualties & Emergency / Legal Status
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {contentLines.split('\n').map((line, lIdx) => {
+                  const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                  if (!clean) return null;
+                  return (
+                    <div key={lIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', color: '#1E293B', lineHeight: '1.5' }}>
+                      <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // 6. DISCOVERED PUBLIC SOURCES & CITATIONS
+        if (header.includes('Sources') || header.includes('Citations') || header.includes('Bulletins')) {
+          return (
+            <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '20px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Search size={18} style={{ color: 'var(--usgi-red)' }} /> Key Web Evidence Bulletins
+                  <Search size={18} style={{ color: 'var(--usgi-red)' }} /> Discovered Public Sources & Citations
                 </h4>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified live source URLs</span>
               </div>
@@ -176,27 +233,26 @@ const renderStructuredGptSummary = (summaryText) => {
           );
         }
 
-        // 5. RCU Investigation Risk Highlights
-        if (header.includes('Risk Highlights') || header.includes('Highlights')) {
-          const hasHighFlags = contentLines.includes('Driver Implant') || contentLines.includes('Pre-Inception') || contentLines.includes('Commercial') || contentLines.includes('Variance');
+        // 7. RCU INVESTIGATION RISK HIGHLIGHTS
+        if (header.includes('Risk') || header.includes('Highlights') || header.includes('Takeaways')) {
           return (
             <div key={idx} className="card" style={{ 
-              background: hasHighFlags ? '#FEF2F2' : '#FFFBEB', 
-              border: `1px solid ${hasHighFlags ? '#FECACA' : '#FCD34D'}`, 
-              borderLeft: `5px solid ${hasHighFlags ? 'var(--usgi-red)' : '#F59E0B'}`, 
+              background: '#FFFBEB', 
+              border: '1px solid #FCD34D', 
+              borderLeft: '5px solid #F59E0B', 
               padding: '20px 24px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
+              boxShadow: '0 4px 16px rgba(0,0,0,0.03)'
             }}>
-              <h4 style={{ fontSize: '15px', fontWeight: '800', color: hasHighFlags ? 'var(--usgi-red)' : '#B45309', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#B45309', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <AlertTriangle size={18} /> RCU Investigation Risk Highlights
               </h4>
-              <div style={{ fontSize: '13px', color: hasHighFlags ? '#991B1B' : '#78350F', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '13px', color: '#78350F', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
                   const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
                   if (!clean || clean.startsWith('Disclaimer')) return null;
                   return (
                     <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                      <span style={{ color: hasHighFlags ? 'var(--usgi-red)' : '#B45309', fontWeight: 'bold' }}>⚠️</span>
+                      <span style={{ color: '#B45309', fontWeight: 'bold' }}>⚠️</span>
                       <span dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                     </div>
                   );
@@ -209,7 +265,7 @@ const renderStructuredGptSummary = (summaryText) => {
         return null;
       })}
       <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px', textAlign: 'center' }}>
-        *Disclaimer: This summary is generated dynamically using LLM evidence analysis of crawled search index data. All decisions remain the responsibility of authorized Universal Sompo investigators.*
+        *Disclaimer: This Gemini AI Overview is synthesized dynamically from scraped public web indexes and media blotters using NLP information extraction.*
       </div>
     </div>
   );
