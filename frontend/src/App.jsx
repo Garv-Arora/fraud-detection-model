@@ -4,10 +4,11 @@ import {
   ExternalLink, Download, FileSpreadsheet, Eye, Trash2, ArrowLeft,
   FileImage, ClipboardList, Clock, Search, MapPin, Tag, Plus, Check, 
   Edit3, ArrowUpRight, CheckSquare, HelpCircle, UserCheck, Settings, Database,
-  Newspaper, Terminal, Radio, Layers, Globe, Sparkles, Copy
+  Newspaper, Terminal, Radio, Layers, Globe, Sparkles, Copy, LogOut, User
 } from 'lucide-react';
 import SearchWorkbench from './components/SearchWorkbench';
 import GeminiAiSummaryCard from './components/GeminiAiSummaryCard';
+import LoginPage from './components/LoginPage';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -220,6 +221,22 @@ const Claim30HeaderMatrix = ({ facts, confidence = {}, isEditable = false, onCha
 };
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('usgi_auth_user') || sessionStorage.getItem('usgi_auth_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return null; }
+    }
+    return null;
+  });
+
+  const handleLogout = () => {
+    localStorage.removeItem('usgi_auth_user');
+    sessionStorage.removeItem('usgi_auth_user');
+    setCurrentUser(null);
+    setCurrentCase(null);
+    setCurrentView('list');
+  };
+
   const [currentView, setCurrentView] = useState('list'); // list, ingest, detail
   const [cases, setCases] = useState([]);
   const [currentCase, setCurrentCase] = useState(null);
@@ -732,6 +749,11 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     return 'text-rose-500';
   };
 
+  // If user is not authenticated, show modern LoginPage
+  if (!currentUser) {
+    return <LoginPage onLogin={(user) => { setCurrentUser(user); fetchCases(); }} />;
+  }
+
   return (
     <div className="dashboard-container">
       {/* Official Top Utility Bar matching universalsompo.com */}
@@ -757,7 +779,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
           </div>
         </div>
 
-        {/* Header Navigation Controls */}
+        {/* Header Navigation Controls & User Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button 
             className={`btn ${currentView === 'workbench' ? 'btn-primary' : 'btn-secondary'}`} 
@@ -776,6 +798,44 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
               <Plus size={16} /> Ingest Claims
             </button>
           )}
+
+          {/* User Profile Info & Sign Out */}
+          <div style={{ borderLeft: '1px solid #E2E8F0', height: '28px', margin: '0 4px' }}></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '5px 12px', borderRadius: '30px' }}>
+              <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #CC0022 0%, #A3001B 100%)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
+                {currentUser.role ? currentUser.role[0] : 'I'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E293B', lineHeight: '1.2' }}>
+                  {currentUser.role || 'Investigator'}
+                </span>
+                <span style={{ fontSize: '9.5px', color: '#64748B', lineHeight: '1' }}>
+                  {currentUser.email || 'Online'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="btn btn-secondary"
+              style={{
+                padding: '6px 12px',
+                fontSize: '11.5px',
+                color: '#CC0022',
+                borderColor: '#FECACA',
+                background: '#FFF5F5',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer'
+              }}
+              title="Sign Out of Portal"
+            >
+              <LogOut size={13} />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </header>
 
