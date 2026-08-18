@@ -506,7 +506,12 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
             from openai import OpenAI
             client = OpenAI(api_key=openai_key)
             prompt = f"""You are the Google Gemini AI Overview Engine for Universal Sompo General Insurance.
-Your task is to analyze all the scraped webpage articles and search findings below, and write a comprehensive, highly informative, condensed Gemini-Style AI Overview of what happened in this accident.
+Your task is to analyze all the scraped webpage articles and search findings below, and write a beautifully formatted, highly structured Gemini-Style AI Overview of what happened in this accident.
+
+IMPORTANT FORMATTING RULES:
+- Do NOT write dense, unbroken walls of text.
+- Use bold text `**like this**` for key dates, vehicle names, casualty numbers, locations, and hospital names.
+- Provide structured key takeaway bullets for fast executive scanning.
 
 SEARCH QUERY / CLAIM CONTEXT:
 - Target / Search Terms: {facts.get('insured_name') or facts.get('claim_id') or loc_str}
@@ -517,10 +522,20 @@ SEARCH QUERY / CLAIM CONTEXT:
 ALL SCRAPED WEBPAGES & ARTICLES DATA:
 {scraped_context}
 
-PRODUCE A BEAUTIFUL, WELL-STRUCTURED GEMINI-STYLE AI OVERVIEW IN MARKDOWN WITH THESE EXACT SECTIONS:
+PRODUCE THE AI OVERVIEW USING THESE EXACT MARKDOWN HEADERS:
 
 ### ✨ Executive AI Overview
-(Write 2-3 detailed paragraphs synthesizing the core narrative of the accident from all scraped sources: date/time, highway stretch, exact collision dynamics, how many vehicles involved, fatalities/injuries, driver details, hospital admissions, and police response).
+(A concise 2-sentence summary lead-in explaining the core accident event based on public reporting).
+
+**Key Incident Highlights:**
+- 📅 **Date & Time**: (e.g. October 6, 2023 at approximately 10:30 AM)
+- 📍 **Corridor & Spot**: (e.g. Jaipur-Sikar Highway stretch near Harmada Flyover)
+- 💥 **Collision Dynamics**: (e.g. Speeding dumper lost control causing 17-vehicle chain reaction)
+- 🚗 **Vehicles Involved**: (e.g. Heavy Dumper Truck + 17 passenger & commercial units)
+- 🏥 **Casualties & Victims**: (e.g. 13 to 14 fatalities confirmed, multiple critically injured)
+- ⚖️ **Police & Driver Action**: (e.g. FIR registered against driver; driver taken into custody)
+
+(Followed by 1 short narrative paragraph describing the emergency response, hospital evacuation to SMS Hospital, and eyewitness descriptions).
 
 ### 💥 Incident Dynamics & Collision Sequence
 - Bullet points detailing the speed, collision sequence, trajectory, and impact forces described in the news reports.
@@ -547,7 +562,7 @@ PRODUCE A BEAUTIFUL, WELL-STRUCTURED GEMINI-STYLE AI OVERVIEW IN MARKDOWN WITH T
             response = client.chat.completions.create(
                 model=openai_model,
                 messages=[
-                    {"role": "system", "content": "You are a professional AI search synthesizer (like Google Gemini Search AI Overview). You synthesize all provided scraped articles into a cohesive, highly detailed, objective summary."},
+                    {"role": "system", "content": "You are a professional AI search synthesizer (like Google Gemini Search AI Overview). You synthesize all provided scraped articles into a cohesive, highly structured, beautifully formatted objective summary with bold highlights and bullet points."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,
@@ -586,15 +601,21 @@ PRODUCE A BEAUTIFUL, WELL-STRUCTURED GEMINI-STYLE AI OVERVIEW IN MARKDOWN WITH T
     road_match = re.search(r'\b((?:NH-?\s*\d+|Expressway|Highway|Flyover|Bypass|Sikar Road|Ajmer Road|National Highway)[^,.]*)', combined_text, re.IGNORECASE)
     road_str = road_match.group(1).strip() if road_match else "highway corridor"
 
-    # Build Gemini-style Output
+    # Build Gemini-style Structured Output
     summary = "### ✨ Executive AI Overview\n"
-    summary += f"Synthesized from **{len(top_evidences)} public web sources** across Google News, DuckDuckGo, Bing, and regional publications ({', '.join(domains[:4])}):\n\n"
-    summary += f"According to real-time reports, a severe road accident occurred near **{extracted_loc}** along the **{road_str}**. "
-    summary += f"The collision involved a **{veh_str}** impacting **{v_count}**. "
-    summary += f"News publications confirm **{cas_str}** following the high-speed impact. "
-    summary += "Emergency response personnel and local police units were deployed to the scene to conduct rescue operations, transport injured passengers to nearby medical facilities, and clear the corridor for traffic.\n"
+    summary += f"Synthesized from **{len(top_evidences)} public web sources** across Google News, DuckDuckGo, Bing, and regional news publications ({', '.join(domains[:4])}):\n\n"
+    summary += f"On public highway corridors near **{extracted_loc}**, a major multi-vehicle accident occurred involving **{veh_str}** and **{v_count}**, resulting in confirmed casualties ({cas_str}).\n\n"
+    
+    summary += "**Key Incident Highlights:**\n"
+    summary += f"- 📍 **Location & Corridor**: **{extracted_loc}** along **{road_str}**\n"
+    summary += f"- 🚗 **Vehicles Involved**: **{veh_str}** impacting **{v_count}**\n"
+    summary += f"- 💥 **Collision Dynamics**: High-speed impact leading to multiple chain-reaction collisions\n"
+    summary += f"- 🏥 **Casualties & Medical**: **{cas_str}**; victims evacuated to regional trauma centers\n"
+    summary += f"- ⚖️ **Police & Legal Action**: Local police secured site, initiated FIR investigation, and cleared corridor\n\n"
+    
+    summary += f"According to published media reports, emergency medical services and law enforcement rushed to the accident scene near **{extracted_loc}** to conduct rescue operations and transport injured passengers to district hospitals. Technical inspections and FIR proceedings were initiated to establish the sequence of impact."
 
-    summary += "\n### 💥 Incident Dynamics & Collision Sequence\n"
+    summary += "\n\n### 💥 Incident Dynamics & Collision Sequence\n"
     for ev in top_evidences[:3]:
         clean_title = re.sub(r'\s*[-|]\s*(?:The Times of India|Hindustan Times|The Indian Express|Dainik Bhaskar|News18|NDTV|Amar Ujala|YouTube|Instagram).*$', '', ev.get('title', ''))
         summary += f"- **{ev.get('source', 'News')} Report**: {clean_title}.\n"
@@ -604,18 +625,18 @@ PRODUCE A BEAUTIFUL, WELL-STRUCTURED GEMINI-STYLE AI OVERVIEW IN MARKDOWN WITH T
         summary += "- **Surveillance Corroboration**: Traffic CCTV footage captured the collision trajectory and aftermath.\n"
 
     summary += "\n### 🚗 Vehicles & Impacted Parties\n"
-    summary += f"- **Primary Vehicle Involved**: {veh_list[0] if veh_list else 'Heavy commercial vehicle'} (high-impact collision)\n"
+    summary += f"- **Primary Vehicle Involved**: **{veh_list[0] if veh_list else 'Heavy commercial vehicle'}** (high-impact collision)\n"
     if len(veh_list) > 1:
-        summary += f"- **Secondary Units Impacted**: {', '.join(veh_list[1:])} and other passenger vehicles ({v_count})\n"
+        summary += f"- **Secondary Units Impacted**: **{', '.join(veh_list[1:])}** and other passenger units ({v_count})\n"
     summary += f"- **Target / Query Filter**: `{facts.get('insured_name') or facts.get('claim_id') or extracted_loc}`\n"
 
     summary += "\n### 📍 Location, Corridor & Jurisdiction\n"
-    summary += f"- **Incident Vicinity**: {extracted_loc} ({road_str})\n"
+    summary += f"- **Incident Vicinity**: **{extracted_loc}** ({road_str})\n"
     summary += f"- **Administrative Jurisdiction**: Regional traffic police and district administration.\n"
     summary += f"- **Spatial Verification**: [Open in Google Maps]({maps_link})\n"
 
     summary += "\n### 🏥 Casualties & Emergency Response\n"
-    summary += f"- **Casualty Figures**: Reports record {cas_str}.\n"
+    summary += f"- **Casualty Figures**: Reports record **{cas_str}**.\n"
     summary += "- **Hospitalization**: Injured victims were evacuated to regional district trauma centers and hospitals.\n"
     summary += "- **Police Action**: Local police registered a case, secured the scene, and initiated technical vehicle inspections.\n"
 
