@@ -1199,109 +1199,38 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         {currentCase && currentView === 'detail' && (
           <div>
             {currentCase.status === 'Searching' ? (
-              /* DEDICATED FULL-SCREEN SEARCHING COMMAND CENTER (FITS 100% IN VIEWPORT) */
-              <div style={{ maxWidth: '1080px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Header Summary Pill Card */}
-                <div className="card" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                      <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
-                        Claim Investigation: {currentCase.claim_id}
-                      </h2>
-                      <span className="badge badge-medium pulse-badge" style={{ color: 'var(--color-medium)', fontSize: '11px' }}>
-                        ⚡ Searching Public Web Indexes...
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                      <span>Policy: <strong>{currentCase.policy_information || 'N/A'}</strong></span>
-                      <span>•</span>
-                      <span>Target Party: <strong>{currentCase.insured_name || currentCase.driver_name || 'N/A'}</strong></span>
-                      <span>•</span>
-                      <span>Vehicle: <strong>{currentCase.vehicle_numbers || 'N/A'}</strong></span>
-                      <span>•</span>
-                      <span>Corridor: <strong>{currentCase.loss_location || currentCase.district_state || 'Local Region'}</strong></span>
-                    </div>
-                  </div>
-                  <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 14px' }} onClick={() => setCurrentView('list')}>
-                    <ArrowLeft size={14} /> Back to Claims
-                  </button>
-                </div>
-
-                {/* Live Discovery Pipeline Telemetry Card */}
-                <div style={{ 
-                  background: '#0F172A', 
-                  border: '1px solid #334155', 
-                  borderRadius: '14px', 
-                  padding: '24px 28px', 
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                  color: '#F8FAFC'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #1E293B', paddingBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div className="spinner" style={{ width: '22px', height: '22px', margin: 0, borderColor: '#38BDF8', borderTopColor: 'transparent', borderWidth: '3px' }}></div>
-                      <div>
-                        <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#38BDF8', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Terminal size={18} /> Live Multi-Source Evidence Discovery & NLP Synthesis
-                        </h4>
-                        <p style={{ fontSize: '11.5px', color: '#94A3B8', margin: 0, marginTop: '2px' }}>
-                          Fanning out parallel queries across news indexes, ePapers, social media, and geocoding services.
-                        </p>
-                      </div>
-                    </div>
-                    <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '11px', fontWeight: '700' }}>
-                      ● MULTI-SOURCE CRAWL IN PROGRESS
-                    </span>
-                  </div>
-
-                  {/* 6-Stage Visual Stepper Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '18px' }}>
-                    {[
-                      { step: "1", title: "RTO Permutations", desc: currentCase.vehicle_numbers ? currentCase.vehicle_numbers.split(',')[0].trim() : "Plate Variations", status: "Done" },
-                      { step: "2", title: "Multi-Engine Crawl", desc: "Google News, Bing, DDGS", status: "Active" },
-                      { step: "3", title: "Day T+1 ePaper", desc: "Bhaskar, Jagran, Amar Ujala", status: "Active" },
-                      { step: "4", title: "Social Forensics", desc: "Instagram & YouTube tags", status: "Active" },
-                      { step: "5", title: "Spatial Geocoding", desc: "Google Maps Coordinates", status: "Done" },
-                      { step: "6", title: "LLM Synthesis", desc: "Gemini AI Overview", status: "Active" }
-                    ].map((s, idx) => (
-                      <div key={idx} style={{ 
-                        background: '#1E293B', 
-                        border: `1px solid ${s.status === 'Active' ? '#38BDF8' : s.status === 'Done' ? '#10B981' : '#334155'}`, 
-                        borderRadius: '8px', 
-                        padding: '10px 12px' 
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '800' }}>STAGE {s.step}</span>
-                          <span style={{ fontSize: '10px', fontWeight: '700', color: s.status === 'Active' ? '#38BDF8' : s.status === 'Done' ? '#10B981' : '#64748B' }}>
-                            {s.status === 'Active' ? '⚡ ACTIVE' : s.status === 'Done' ? '✓ OK' : 'PENDING'}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#F8FAFC' }}>{s.title}</div>
-                        <div style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.desc}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Terminal Log Console */}
-                  <div style={{ 
-                    background: '#020617', 
-                    border: '1px solid #1E293B', 
-                    borderRadius: '8px', 
-                    padding: '12px 16px', 
-                    fontFamily: 'monospace', 
-                    fontSize: '11.5px', 
-                    color: '#94A3B8', 
-                    lineHeight: '1.7',
-                    maxHeight: '130px',
-                    overflowY: 'auto'
-                  }}>
-                    <div style={{ color: '#10B981' }}>&gt; [00:01] 30 Claim Fact Headers Extracted for Claim {currentCase.claim_id}</div>
-                    <div style={{ color: '#38BDF8' }}>&gt; [00:02] Generated search query matrix ({currentCase.vehicle_numbers || 'RTO'}, {currentCase.loss_location || 'Corridor'})</div>
-                    <div>&gt; [00:03] Fanout sent to Google News RSS index and regional accident databases (200 OK)</div>
-                    <div>&gt; [00:04] Day T+1 morning print edition archives audited for {currentCase.district_state || currentCase.loss_location || 'local district'}</div>
-                    <div>&gt; [00:05] Deep article body scraper active: Extracting collision sequence, casualties, and police station records...</div>
-                    <div style={{ color: '#F59E0B' }}>&gt; [00:06] Applying multi-factor relevance scoring and building Gemini AI Overview...</div>
-                  </div>
-                </div>
+              /* CLEAN, MINIMAL SEARCHING STATE */
+              <div className="card" style={{ 
+                maxWidth: '500px', 
+                margin: '60px auto', 
+                padding: '48px 32px', 
+                textAlign: 'center', 
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 8px 30px rgba(15, 23, 42, 0.04)'
+              }}>
+                <div className="spinner" style={{ 
+                  width: '36px', 
+                  height: '36px', 
+                  margin: '0 auto 16px auto', 
+                  borderWidth: '3px', 
+                  borderColor: '#CC0022', 
+                  borderTopColor: 'transparent' 
+                }}></div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: '0 0 6px 0' }}>
+                  Searching...
+                </h3>
+                <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '380px', margin: '0 auto 20px auto', lineHeight: '1.5' }}>
+                  Searching for evidence across public news indexes, regional ePapers, and generating AI summary for Claim <strong>{currentCase.claim_id}</strong>.
+                </p>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ fontSize: '12px', padding: '6px 14px', margin: '0 auto' }} 
+                  onClick={() => setCurrentView('list')}
+                >
+                  <ArrowLeft size={14} /> Back to Claims List
+                </button>
               </div>
             ) : (
               /* COMPLETED DETAIL DASHBOARD */
