@@ -857,6 +857,38 @@ def run_investigator_custom_search(
         "queries": req.queries
     }
 
+@app.post("/api/cases/{claim_id}/run-evidence-finder")
+def run_evidence_finder_endpoint(
+    claim_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    case = db.query(Case).filter(
+        (Case.claim_id == claim_id) | 
+        (Case.id == int(claim_id) if claim_id.isdigit() else False)
+    ).first()
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Case with claim ID {claim_id} not found."
+        )
+        
+    case.status = "Searching"
+    db.add(AuditLog(
+        case_id=case.id,
+        action="Evidence Finder Triggered",
+        details="Investigator initiated multi-source public evidence search and Gemini AI Overview synthesis."
+    ))
+    db.commit()
+    
+    background_tasks.add_task(run_evidence_search_pipeline, case.id, db)
+    return {
+        "success": True,
+        "message": f"Evidence finder started for claim {case.claim_id}.",
+        "case_id": case.id,
+        "claim_id": case.claim_id
+    }
+
 @app.post("/api/search/workbench", response_model=schemas.SearchWorkbenchResponse)
 def run_search_workbench(req: schemas.SearchWorkbenchRequest):
     """

@@ -422,6 +422,27 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     }
   };
 
+  const handleRunEvidenceFinder = async (claimIdOrDbId) => {
+    if (!currentCase) return;
+    setLoading(true);
+    try {
+      const targetId = currentCase.claim_id || claimIdOrDbId;
+      const res = await fetch(`${API_BASE}/cases/${targetId}/run-evidence-finder`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        setCurrentCase(prev => ({ ...prev, status: 'Searching' }));
+      } else {
+        alert("Failed to start evidence finder.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error triggering evidence finder.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Clear All Investigation Logs & Claims
   const handleClearAllLogs = async () => {
     if (!window.confirm("Are you sure you want to delete all investigation logs, evidence items, and claim records? This cannot be undone.")) return;

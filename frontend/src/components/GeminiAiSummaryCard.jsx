@@ -6,35 +6,57 @@ import {
 } from 'lucide-react';
 
 export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied = false }) {
-  if (!summaryText) return null;
-  const sections = summaryText.split(/###\s+/);
+  if (!summaryText || typeof summaryText !== 'string' || !summaryText.trim()) {
+    return (
+      <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px', textAlign: 'center' }}>
+        <p style={{ color: '#64748B', fontSize: '13px', margin: 0 }}>No AI Summary text available.</p>
+      </div>
+    );
+  }
 
   // Helper to get icon for specific highlight headers
   const getHighlightIcon = (label) => {
+    if (!label) return <Sparkles size={15} style={{ color: '#9B72CF' }} />;
     const l = label.toLowerCase();
-    if (l.includes('date') || l.includes('time')) return <Calendar size={15} style={{ color: '#2563EB' }} />;
-    if (l.includes('location') || l.includes('corridor') || l.includes('spot')) return <MapPin size={15} style={{ color: '#059669' }} />;
-    if (l.includes('dynamic') || l.includes('collision') || l.includes('speed')) return <Zap size={15} style={{ color: '#D97706' }} />;
-    if (l.includes('vehicle') || l.includes('party')) return <Car size={15} style={{ color: '#4F46E5' }} />;
-    if (l.includes('casualty') || l.includes('medical') || l.includes('victim') || l.includes('hospital')) return <HeartPulse size={15} style={{ color: '#DC2626' }} />;
-    if (l.includes('police') || l.includes('legal') || l.includes('action') || l.includes('fir') || l.includes('driver')) return <Scale size={15} style={{ color: '#7C3AED' }} />;
+    if (l.includes('date') || l.includes('time') || l.includes('when')) return <Calendar size={15} style={{ color: '#2563EB' }} />;
+    if (l.includes('location') || l.includes('corridor') || l.includes('spot') || l.includes('where') || l.includes('city')) return <MapPin size={15} style={{ color: '#059669' }} />;
+    if (l.includes('dynamic') || l.includes('collision') || l.includes('speed') || l.includes('impact') || l.includes('force')) return <Zap size={15} style={{ color: '#D97706' }} />;
+    if (l.includes('vehicle') || l.includes('party') || l.includes('car') || l.includes('truck') || l.includes('driver')) return <Car size={15} style={{ color: '#4F46E5' }} />;
+    if (l.includes('casualty') || l.includes('medical') || l.includes('victim') || l.includes('hospital') || l.includes('injury') || l.includes('death')) return <HeartPulse size={15} style={{ color: '#DC2626' }} />;
+    if (l.includes('police') || l.includes('legal') || l.includes('action') || l.includes('fir') || l.includes('station') || l.includes('ipc')) return <Scale size={15} style={{ color: '#7C3AED' }} />;
     return <Sparkles size={15} style={{ color: '#9B72CF' }} />;
   };
 
+  // Split by markdown headers (### or ##)
+  let rawSections = summaryText.split(/(?:^|\n)#{2,3}\s+/).filter(s => s.trim().length > 0);
+  
+  // If no markdown headers were found, treat the entire text as one section
+  if (rawSections.length === 0) {
+    rawSections = [summaryText];
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      {sections.map((section, idx) => {
-        if (!section.trim()) return null;
+      {rawSections.map((section, idx) => {
         const lines = section.trim().split('\n');
-        const header = lines[0].replace(/[*#]/g, '').trim();
-        const contentLines = lines.slice(1).join('\n').trim();
+        let header = lines[0].replace(/[*#]/g, '').trim();
+        let contentLines = lines.slice(1).join('\n').trim();
 
-        // 1. EXECUTIVE AI OVERVIEW (GEMINI BANNER CARD)
-        if (header.includes('Executive AI Overview') || header.includes('Executive Web Search Summary') || header.includes('Key Observations')) {
+        // If there's only 1 line or the first line was not a header
+        if (rawSections.length === 1 && (!contentLines || lines.length <= 2)) {
+          header = 'Executive AI Overview';
+          contentLines = section.trim();
+        } else if (!contentLines) {
+          contentLines = header;
+          header = `Incident Overview Section ${idx + 1}`;
+        }
+
+        const hLower = header.toLowerCase();
+
+        // 1. EXECUTIVE AI OVERVIEW (GEMINI BANNER CARD) - First section or matching overview
+        if (idx === 0 || hLower.includes('overview') || hLower.includes('summary') || hLower.includes('observation') || hLower.includes('brief') || hLower.includes('executive')) {
           const isZeroEvidence = contentLines.includes('0 public web pages') || contentLines.includes('0 verified') || contentLines.includes('0 case-specific') || contentLines.includes('0 online records');
-          
-          // Split paragraphs and bullet points
-          const paragraphs = contentLines.split('\n\n');
+          const paragraphs = contentLines.split('\n\n').filter(p => p.trim());
 
           return (
             <div key={idx} className="card" style={{ 
@@ -63,7 +85,7 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
                     <span style={{ fontSize: '12px', fontWeight: '800', letterSpacing: '0.6px' }}>AI OVERVIEW</span>
                   </div>
                   <h4 style={{ fontSize: '17px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.2px' }}>
-                    Synthesized Public Evidence & Accident Briefing
+                    {header.includes('AI') ? header : 'Synthesized Public Evidence & Accident Briefing'}
                   </h4>
                 </div>
 
@@ -110,13 +132,13 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
                   const pTrim = para.trim();
                   if (!pTrim) return null;
 
-                  // 1. Is this a list of key takeaway bullet points? (e.g. Key Incident Highlights)
+                  // Check if this block contains key takeaway bullet points
                   const isBulletBlock = pTrim.includes('- 📅') || pTrim.includes('- 📍') || pTrim.includes('- 💥') || pTrim.includes('- 🚗') || pTrim.includes('- 🏥') || pTrim.includes('- ⚖️') || (pTrim.startsWith('- ') && pTrim.includes(':'));
                   
                   if (isBulletBlock) {
-                    const lines = pTrim.split('\n');
-                    const headerLine = lines[0].startsWith('- ') ? null : lines[0];
-                    const bulletLines = lines[0].startsWith('- ') ? lines : lines.slice(1);
+                    const bLines = pTrim.split('\n');
+                    const headerLine = bLines[0].startsWith('- ') ? null : bLines[0];
+                    const bulletLines = bLines[0].startsWith('- ') ? bLines : bLines.slice(1);
 
                     return (
                       <div key={pIdx} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px', marginBottom: '6px' }}>
@@ -125,12 +147,11 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
                             {headerLine.replace(/[*_#]/g, '')}
                           </div>
                         )}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px' }}>
                           {bulletLines.map((b, bIdx) => {
                             const clean = b.replace(/^[•*\-\d.]+\s*/, '').trim();
                             if (!clean) return null;
                             
-                            // Extract prefix/label if present (e.g. "**Location & Corridor**:")
                             const colonIdx = clean.indexOf(':');
                             const label = colonIdx > -1 ? clean.substring(0, colonIdx).replace(/[*_]/g, '').trim() : '';
                             const value = colonIdx > -1 ? clean.substring(colonIdx + 1).trim() : clean;
@@ -178,7 +199,7 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
                     );
                   }
 
-                  // 2. Standard Paragraph formatting with high contrast bold highlights
+                  // Standard Paragraph
                   return (
                     <p 
                       key={pIdx} 
@@ -201,11 +222,11 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
         }
 
         // 2. INCIDENT DYNAMICS & SEQUENCE
-        if (header.includes('Dynamics') || header.includes('Sequence') || header.includes('Collision')) {
+        if (hLower.includes('dynamic') || hLower.includes('sequence') || hLower.includes('collision') || hLower.includes('impact') || hLower.includes('crash')) {
           return (
             <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px 28px', boxShadow: '0 4px 18px rgba(0,0,0,0.03)', borderRadius: '12px' }}>
               <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <Zap size={18} style={{ color: '#D97706' }} /> Incident Dynamics & Collision Sequence
+                <Zap size={18} style={{ color: '#D97706' }} /> {header || 'Incident Dynamics & Collision Sequence'}
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
@@ -224,11 +245,11 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
         }
 
         // 3. VEHICLES & IMPACTED PARTIES
-        if (header.includes('Vehicles') || header.includes('Parties') || header.includes('Objectivity')) {
+        if (hLower.includes('vehicle') || hLower.includes('part') || hLower.includes('car') || hLower.includes('truck') || hLower.includes('driver')) {
           return (
             <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px 28px', boxShadow: '0 4px 18px rgba(0,0,0,0.03)', borderRadius: '12px' }}>
               <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <Car size={18} style={{ color: '#4F46E5' }} /> Vehicles & Impacted Parties Identified
+                <Car size={18} style={{ color: '#4F46E5' }} /> {header || 'Vehicles & Impacted Parties Identified'}
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
@@ -246,7 +267,7 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
         }
 
         // 4. LOCATION & CORRIDOR
-        if (header.includes('Location') || header.includes('Corridor') || header.includes('Jurisdiction') || header.includes('Feasibility')) {
+        if (hLower.includes('location') || hLower.includes('corridor') || hLower.includes('jurisdiction') || hLower.includes('spot') || hLower.includes('map')) {
           let mapsUrl = null;
           contentLines.split('\n').forEach(line => {
             const m = line.match(/\[.*?\]\((https:\/\/www\.google\.com\/maps[^\)]*)\)/);
@@ -257,7 +278,7 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
             <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px 28px', boxShadow: '0 4px 18px rgba(0,0,0,0.03)', borderRadius: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <MapPin size={18} style={{ color: '#059669' }} /> Location, Corridor & Jurisdiction
+                  <MapPin size={18} style={{ color: '#059669' }} /> {header || 'Location, Corridor & Jurisdiction'}
                 </h4>
                 {mapsUrl && (
                   <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '12px', color: '#2563EB', borderColor: '#BFDBFE', background: '#EFF6FF', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -281,11 +302,11 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
         }
 
         // 5. CASUALTIES & EMERGENCY / LEGAL STATUS
-        if (header.includes('Casualties') || header.includes('Emergency') || header.includes('Medical')) {
+        if (hLower.includes('casualt') || hLower.includes('emergency') || hLower.includes('medical') || hLower.includes('hospital') || hLower.includes('victim') || hLower.includes('injury') || hLower.includes('legal')) {
           return (
             <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px 28px', boxShadow: '0 4px 18px rgba(0,0,0,0.03)', borderRadius: '12px' }}>
               <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <HeartPulse size={18} style={{ color: '#DC2626' }} /> Casualties & Emergency / Legal Status
+                <HeartPulse size={18} style={{ color: '#DC2626' }} /> {header || 'Casualties & Emergency / Legal Status'}
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
@@ -303,12 +324,12 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
         }
 
         // 6. DISCOVERED PUBLIC SOURCES & CITATIONS
-        if (header.includes('Sources') || header.includes('Citations') || header.includes('Bulletins')) {
+        if (hLower.includes('source') || hLower.includes('citation') || hLower.includes('bulletin') || hLower.includes('reference') || hLower.includes('link')) {
           return (
             <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px 28px', boxShadow: '0 4px 18px rgba(0,0,0,0.03)', borderRadius: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Globe size={18} style={{ color: 'var(--usgi-red)' }} /> Discovered Public Sources & Citations
+                  <Globe size={18} style={{ color: 'var(--usgi-red)' }} /> {header || 'Discovered Public Sources & Citations'}
                 </h4>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Verified live source URLs</span>
               </div>
@@ -348,7 +369,7 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
         }
 
         // 7. RCU INVESTIGATION RISK HIGHLIGHTS
-        if (header.includes('Risk') || header.includes('Highlights') || header.includes('Takeaways')) {
+        if (hLower.includes('risk') || hLower.includes('highlight') || hLower.includes('takeaway') || hLower.includes('flag') || hLower.includes('warning')) {
           return (
             <div key={idx} className="card" style={{ 
               background: '#FFFBEB', 
@@ -359,7 +380,7 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
               borderRadius: '12px'
             }}>
               <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#B45309', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AlertTriangle size={18} /> RCU Investigation Risk Highlights & Protocols
+                <AlertTriangle size={18} /> {header || 'Investigation Risk Highlights & Protocols'}
               </h4>
               <div style={{ fontSize: '13.5px', color: '#78350F', lineHeight: '1.65', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {contentLines.split('\n').map((line, lIdx) => {
@@ -377,10 +398,26 @@ export default function GeminiAiSummaryCard({ summaryText, onCopy = null, copied
           );
         }
 
-        return null;
+        // 8. GENERIC FALLBACK SECTION (Ensures NO section is ever lost or hidden)
+        return (
+          <div key={idx} className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '24px 28px', boxShadow: '0 4px 18px rgba(0,0,0,0.03)', borderRadius: '12px' }}>
+            <h4 style={{ fontSize: '15.5px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <FileText size={18} style={{ color: 'var(--usgi-red)' }} /> {header}
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {contentLines.split('\n').map((line, lIdx) => {
+                const clean = line.replace(/^[•*\-\d.]+\s*/, '').trim();
+                if (!clean) return null;
+                return (
+                  <div key={lIdx} style={{ fontSize: '13.5px', color: '#334155', lineHeight: '1.65' }} dangerouslySetInnerHTML={{ __html: clean.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0F172A; font-weight:700;">$1</strong>') }} />
+                );
+              })}
+            </div>
+          </div>
+        );
       })}
       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '6px', textAlign: 'center' }}>
-        *Disclaimer: This Gemini AI Overview is synthesized dynamically from scraped public web indexes and regional media blotters using NLP information extraction.*
+        *Disclaimer: This AI Overview is synthesized dynamically from scraped public web indexes and media blotters using NLP information extraction.*
       </div>
     </div>
   );
