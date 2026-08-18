@@ -4,7 +4,7 @@ import {
   ExternalLink, Download, FileSpreadsheet, Eye, Trash2, ArrowLeft,
   FileImage, ClipboardList, Clock, Search, MapPin, Tag, Plus, Check, 
   Edit3, ArrowUpRight, CheckSquare, HelpCircle, UserCheck, Settings, Database,
-  Newspaper, Terminal, Radio, Layers, Globe, Sparkles
+  Newspaper, Terminal, Radio, Layers, Globe, Sparkles, Copy
 } from 'lucide-react';
 import SearchWorkbench from './components/SearchWorkbench';
 
@@ -447,7 +447,8 @@ export default function App() {
   const [importStatus, setImportStatus] = useState(null);
   
   // Tabs on Detail View
-  const [detailTab, setDetailTab] = useState('facts'); // facts, evidence, mismatch, lens, audit
+  const [detailTab, setDetailTab] = useState('facts'); // facts, ai_summary, evidence, mismatch, epaper, lens, audit
+  const [copiedAiSummary, setCopiedAiSummary] = useState(false);
   
   // Photo upload state
   const [imageFile, setImageFile] = useState(null);
@@ -1579,19 +1580,15 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
               {/* Right Side: AI Summary & Evidence Tabs */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 
-                {/* 1. RICH GPT AI EVIDENCE SUMMARY MODULE CARD */}
-                {currentCase.status === 'Completed' && currentCase.ai_summary && (
-                  <div>
-                    {renderStructuredGptSummary(currentCase.ai_summary)}
-                  </div>
-                )}
-
-                {/* 2. Analysis Details Tab Panel */}
+                {/* Analysis Details Tab Panel */}
                 <div className="card" style={{ minHeight: '500px' }}>
                   
                   <div className="tab-container">
                     <button className={`tab-btn ${detailTab === 'facts' ? 'active' : ''}`} onClick={() => setDetailTab('facts')}>
                       <FileText size={16} /> Fact Profile
+                    </button>
+                    <button className={`tab-btn ${detailTab === 'ai_summary' ? 'active' : ''}`} onClick={() => setDetailTab('ai_summary')}>
+                      <Sparkles size={16} style={{ color: 'var(--usgi-red)' }} /> AI Evidence Summary
                     </button>
                     <button className={`tab-btn ${detailTab === 'evidence' ? 'active' : ''}`} onClick={() => setDetailTab('evidence')}>
                       <Search size={16} /> Public Evidence ({currentCase.evidences ? currentCase.evidences.length : 0})
@@ -1615,7 +1612,64 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                     <Claim30HeaderMatrix facts={currentCase} isEditable={false} />
                   )}
 
-                  {/* TAB 2: EVIDENCE LINKS WITH ENHANCED SCORES */}
+                  {/* TAB 2: CONDENSED STRUCTURED AI EVIDENCE SUMMARY */}
+                  {detailTab === 'ai_summary' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {currentCase.status === 'Searching' ? (
+                        <div className="loading-container" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                          <div className="spinner"></div>
+                          <p style={{ fontSize: '16px', fontWeight: '800', color: '#1E293B', marginBottom: '8px' }}>
+                            ⚡ Multi-Source Evidence Discovery & AI Synthesis In Progress
+                          </p>
+                          <div className="loading-subtext" style={{ maxWidth: '520px', margin: '0 auto', lineHeight: '1.6' }}>
+                            Auditing Google News RSS, Regional e-Paper archives, Instagram/YouTube, and compiling structured executive AI evidence report...
+                          </div>
+                        </div>
+                      ) : currentCase.ai_summary ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                              <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                <Sparkles size={20} style={{ color: 'var(--usgi-red)' }} />
+                                Condensed AI Evidence Synthesis & Investigation Report
+                              </h3>
+                              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+                                Structured executive breakdown generated from multi-engine web search, FIR corroborated records, and spatial feasibility audits.
+                              </p>
+                            </div>
+                            <button
+                              className="btn btn-secondary"
+                              onClick={() => {
+                                navigator.clipboard.writeText(currentCase.ai_summary);
+                                setCopiedAiSummary(true);
+                                setTimeout(() => setCopiedAiSummary(false), 2000);
+                              }}
+                              style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              {copiedAiSummary ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
+                              {copiedAiSummary ? 'Summary Copied!' : 'Copy Summary'}
+                            </button>
+                          </div>
+                          {renderStructuredGptSummary(currentCase.ai_summary)}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '50px 20px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                          <FileText size={40} style={{ color: '#94A3B8', marginBottom: '12px' }} />
+                          <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#1E293B', marginBottom: '8px' }}>
+                            AI Evidence Summary Pending
+                          </h4>
+                          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '500px', margin: '0 auto 16px auto', lineHeight: '1.5' }}>
+                            No AI summary has been generated for this claim yet. Click below to run the multi-source evidence finder and generate the structured synthesis.
+                          </p>
+                          <button className="btn btn-primary" onClick={() => handleRunEvidenceFinder(currentCase.id)}>
+                            <Search size={16} /> Run Evidence Finder
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 3: EVIDENCE LINKS WITH ENHANCED SCORES */}
                   {detailTab === 'evidence' && (
                     <div>
                       {currentCase.status === 'Searching' ? (
