@@ -1149,106 +1149,70 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         {/* VIEW 3: CLAIM DETAILED EVIDENCE DASHBOARD */}
         {currentCase && currentView === 'detail' && (
           <div>
-            {/* Header Details Card */}
-            <div className="card" style={{ marginBottom: '32px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <h2>Claim Number: {currentCase.claim_id}</h2>
-                    {currentCase.status === 'Searching' ? (
-                      <span className="badge badge-medium pulse-badge" style={{ color: 'var(--color-medium)' }}>Executing Public Search...</span>
-                    ) : currentCase.risk_level === 'HIGH REVIEW' ? (
-                      <span className="badge badge-high">High Review Flagged</span>
-                    ) : currentCase.risk_level === 'MEDIUM REVIEW' ? (
-                      <span className="badge badge-medium">Medium Review</span>
-                    ) : currentCase.risk_level === 'LOW RISK' ? (
-                      <span className="badge badge-low">Low Risk</span>
-                    ) : (
-                      <span className="badge badge-secondary">{currentCase.risk_level}</span>
-                    )}
+            {currentCase.status === 'Searching' ? (
+              /* DEDICATED FULL-SCREEN SEARCHING COMMAND CENTER (FITS 100% IN VIEWPORT) */
+              <div style={{ maxWidth: '1080px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Header Summary Pill Card */}
+                <div className="card" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+                        Claim Investigation: {currentCase.claim_id}
+                      </h2>
+                      <span className="badge badge-medium pulse-badge" style={{ color: 'var(--color-medium)', fontSize: '11px' }}>
+                        ⚡ Searching Public Web Indexes...
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                      <span>Policy: <strong>{currentCase.policy_information || 'N/A'}</strong></span>
+                      <span>•</span>
+                      <span>Target Party: <strong>{currentCase.insured_name || currentCase.driver_name || 'N/A'}</strong></span>
+                      <span>•</span>
+                      <span>Vehicle: <strong>{currentCase.vehicle_numbers || 'N/A'}</strong></span>
+                      <span>•</span>
+                      <span>Corridor: <strong>{currentCase.loss_location || currentCase.district_state || 'Local Region'}</strong></span>
+                    </div>
                   </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                    Policy Info: <strong>{currentCase.policy_information || 'N/A'}</strong> | Ingested: {currentCase.created_at ? currentCase.created_at.replace('T', ' ').substring(0,19) : ''}
-                  </p>
+                  <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 14px' }} onClick={() => setCurrentView('list')}>
+                    <ArrowLeft size={14} /> Back to Claims
+                  </button>
                 </div>
 
-                {currentCase.status === 'Completed' && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                    <button className="btn btn-secondary" onClick={handleOpenCustomSearch}>
-                      <Search size={16} style={{ color: 'var(--usgi-red)' }} /> Query Customizer
-                    </button>
-                    <a href={`${API_BASE}/cases/${currentCase.claim_id}/export-excel`} className="btn btn-secondary">
-                      <FileSpreadsheet size={16} style={{ color: '#27ae60' }} /> Export Excel Pack
-                    </a>
-                    <a href={`${API_BASE}/cases/${currentCase.claim_id}/export-pdf`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                      <Download size={16} style={{ color: 'var(--primary)' }} /> Save PDF Report
-                    </a>
-                    
-                    {/* Quest Pushback action */}
-                    <button 
-                      className="btn btn-secondary" 
-                      onClick={handleQuestPushback} 
-                      disabled={pushingToQuest || currentCase.pushback_status.includes('Success')}
-                    >
-                      {pushingToQuest ? <RefreshCw className="animate-spin" size={16} /> : <ArrowUpRight size={16} />}
-                      {currentCase.pushback_status.includes('Success') ? 'Synced to Quest' : 'Push to Quest API'}
-                    </button>
-
-                    {activeRole === 'Investigator' && (
-                      <>
-                        <div style={{ borderLeft: '1px solid var(--border-card)', height: '40px', margin: '0 8px' }}></div>
-                        <button className="btn btn-success" onClick={() => handleUpdateStatus('Investigated - Approved')}>
-                          <CheckCircle size={16} /> Approve Claim
-                        </button>
-                        <button className="btn btn-danger" onClick={() => handleUpdateStatus('Investigated - Flagged')}>
-                          <AlertTriangle size={16} /> Flag Fraud
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Quest pushback status notification */}
-              {pushSuccess && (
-                <div className="btn-success" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', marginTop: '16px', fontSize: '12px', fontWeight: 'bold' }}>
-                  <CheckCircle size={14} />
-                  Simulated API push success: Claims evidence JSON transaction synchronized to Quest Investigation Portal database.
-                </div>
-              )}
-
-              {/* In-Progress Search Live Telemetry Terminal */}
-              {currentCase.status === 'Searching' && (
+                {/* Live Discovery Pipeline Telemetry Card */}
                 <div style={{ 
                   background: '#0F172A', 
                   border: '1px solid #334155', 
-                  borderRadius: '12px', 
-                  padding: '24px', 
-                  marginTop: '20px', 
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+                  borderRadius: '14px', 
+                  padding: '24px 28px', 
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
                   color: '#F8FAFC'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #1E293B', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div className="spinner" style={{ width: '20px', height: '20px', margin: 0, borderColor: '#38BDF8', borderTopColor: 'transparent' }}></div>
-                      <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#38BDF8', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Terminal size={18} /> Live Evidence Discovery Pipeline Telemetry
-                      </h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #1E293B', paddingBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div className="spinner" style={{ width: '22px', height: '22px', margin: 0, borderColor: '#38BDF8', borderTopColor: 'transparent', borderWidth: '3px' }}></div>
+                      <div>
+                        <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#38BDF8', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Terminal size={18} /> Live Multi-Source Evidence Discovery & NLP Synthesis
+                        </h4>
+                        <p style={{ fontSize: '11.5px', color: '#94A3B8', margin: 0, marginTop: '2px' }}>
+                          Fanning out parallel queries across news indexes, ePapers, social media, and geocoding services.
+                        </p>
+                      </div>
                     </div>
-                    <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '11px' }}>
+                    <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '11px', fontWeight: '700' }}>
                       ● MULTI-SOURCE CRAWL IN PROGRESS
                     </span>
                   </div>
 
-                  {/* 6-Stage Visual Stepper */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+                  {/* 6-Stage Visual Stepper Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '18px' }}>
                     {[
-                      { step: "1", title: "RTO Permutations", desc: "RJ-09-GC-8889, 8889", status: "Done" },
+                      { step: "1", title: "RTO Permutations", desc: currentCase.vehicle_numbers ? currentCase.vehicle_numbers.split(',')[0].trim() : "Plate Variations", status: "Done" },
                       { step: "2", title: "Multi-Engine Crawl", desc: "Google News, Bing, DDGS", status: "Active" },
-                      { step: "3", title: "Day T+1 ePaper Check", desc: "Bhaskar, Jagran, Amar Ujala", status: "Active" },
+                      { step: "3", title: "Day T+1 ePaper", desc: "Bhaskar, Jagran, Amar Ujala", status: "Active" },
                       { step: "4", title: "Social Forensics", desc: "Instagram & YouTube tags", status: "Active" },
                       { step: "5", title: "Spatial Geocoding", desc: "Google Maps Coordinates", status: "Done" },
-                      { step: "6", title: "LLM Synthesis", desc: "Fraud Mismatch Matrix", status: "Pending" }
+                      { step: "6", title: "LLM Synthesis", desc: "Gemini AI Overview", status: "Active" }
                     ].map((s, idx) => (
                       <div key={idx} style={{ 
                         background: '#1E293B', 
@@ -1259,11 +1223,11 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                           <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '800' }}>STAGE {s.step}</span>
                           <span style={{ fontSize: '10px', fontWeight: '700', color: s.status === 'Active' ? '#38BDF8' : s.status === 'Done' ? '#10B981' : '#64748B' }}>
-                            {s.status === 'Active' ? '⚡ RUNNING' : s.status === 'Done' ? '✓ OK' : 'PENDING'}
+                            {s.status === 'Active' ? '⚡ ACTIVE' : s.status === 'Done' ? '✓ OK' : 'PENDING'}
                           </span>
                         </div>
                         <div style={{ fontSize: '12px', fontWeight: '700', color: '#F8FAFC' }}>{s.title}</div>
-                        <div style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '2px' }}>{s.desc}</div>
+                        <div style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.desc}</div>
                       </div>
                     ))}
                   </div>
@@ -1278,28 +1242,94 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                     fontSize: '11.5px', 
                     color: '#94A3B8', 
                     lineHeight: '1.7',
-                    maxHeight: '140px',
+                    maxHeight: '130px',
                     overflowY: 'auto'
                   }}>
                     <div style={{ color: '#10B981' }}>&gt; [00:01] 30 Tera Bot Headers Extracted for Claim {currentCase.claim_id}</div>
-                    <div style={{ color: '#38BDF8' }}>&gt; [00:02] Generated 10 query variations (RTO: RJ09GC8889, Hindi: सड़क दुर्घटना, Instagram/YouTube)</div>
+                    <div style={{ color: '#38BDF8' }}>&gt; [00:02] Generated search query matrix ({currentCase.vehicle_numbers || 'RTO'}, {currentCase.loss_location || 'Corridor'})</div>
                     <div>&gt; [00:03] Fanout sent to Google News RSS index and regional accident databases (200 OK)</div>
-                    <div>&gt; [00:04] Day T+1 morning print edition archives prepared for {currentCase.district_state || currentCase.loss_location || 'local district'}</div>
-                    <div>&gt; [00:05] Deep article body scraper active: Extracting buried driver and passenger entities...</div>
-                    <div style={{ color: '#F59E0B' }}>&gt; [00:06] Applying zero-noise filter (score threshold &gt;= 0.45)...</div>
+                    <div>&gt; [00:04] Day T+1 morning print edition archives audited for {currentCase.district_state || currentCase.loss_location || 'local district'}</div>
+                    <div>&gt; [00:05] Deep article body scraper active: Extracting collision sequence, casualties, and police station records...</div>
+                    <div style={{ color: '#F59E0B' }}>&gt; [00:06] Applying multi-factor relevance scoring and building Gemini AI Overview...</div>
                   </div>
                 </div>
-              )}
+              </div>
+            ) : (
+              /* COMPLETED DETAIL DASHBOARD */
+              <div>
+                {/* Header Details Card */}
+                <div className="card" style={{ marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <h2>Claim Number: {currentCase.claim_id}</h2>
+                        {currentCase.risk_level === 'HIGH REVIEW' ? (
+                          <span className="badge badge-high">High Review Flagged</span>
+                        ) : currentCase.risk_level === 'MEDIUM REVIEW' ? (
+                          <span className="badge badge-medium">Medium Review</span>
+                        ) : currentCase.risk_level === 'LOW RISK' ? (
+                          <span className="badge badge-low">Low Risk</span>
+                        ) : (
+                          <span className="badge badge-secondary">{currentCase.risk_level}</span>
+                        )}
+                      </div>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                        Policy Info: <strong>{currentCase.policy_information || 'N/A'}</strong> | Ingested: {currentCase.created_at ? currentCase.created_at.replace('T', ' ').substring(0,19) : ''}
+                      </p>
+                    </div>
 
-              {/* Closed status banner */}
-              {currentCase.status.includes('Investigated') && (
-                <div className={currentCase.status.includes('Approved') ? 'btn-success' : 'btn-danger'} 
-                     style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderRadius: '8px', marginTop: '20px', fontSize: '14px', fontWeight: 'bold' }}>
-                  {currentCase.status.includes('Approved') ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
-                  Claim investigation review completed. Decision status: {currentCase.status.toUpperCase()}.
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                      <button className="btn btn-secondary" onClick={handleOpenCustomSearch}>
+                        <Search size={16} style={{ color: 'var(--usgi-red)' }} /> Query Customizer
+                      </button>
+                      <a href={`${API_BASE}/cases/${currentCase.claim_id}/export-excel`} className="btn btn-secondary">
+                        <FileSpreadsheet size={16} style={{ color: '#27ae60' }} /> Export Excel Pack
+                      </a>
+                      <a href={`${API_BASE}/cases/${currentCase.claim_id}/export-pdf`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                        <Download size={16} style={{ color: 'var(--primary)' }} /> Save PDF Report
+                      </a>
+                      
+                      {/* Quest Pushback action */}
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={handleQuestPushback} 
+                        disabled={pushingToQuest || currentCase.pushback_status.includes('Success')}
+                      >
+                        {pushingToQuest ? <RefreshCw className="animate-spin" size={16} /> : <ArrowUpRight size={16} />}
+                        {currentCase.pushback_status.includes('Success') ? 'Synced to Quest' : 'Push to Quest API'}
+                      </button>
+
+                      {activeRole === 'Investigator' && (
+                        <>
+                          <div style={{ borderLeft: '1px solid var(--border-card)', height: '40px', margin: '0 8px' }}></div>
+                          <button className="btn btn-success" onClick={() => handleUpdateStatus('Investigated - Approved')}>
+                            <CheckCircle size={16} /> Approve Claim
+                          </button>
+                          <button className="btn btn-danger" onClick={() => handleUpdateStatus('Investigated - Flagged')}>
+                            <AlertTriangle size={16} /> Flag Fraud
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quest pushback status notification */}
+                  {pushSuccess && (
+                    <div className="btn-success" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', marginTop: '16px', fontSize: '12px', fontWeight: 'bold' }}>
+                      <CheckCircle size={14} />
+                      Simulated API push success: Claims evidence JSON transaction synchronized to Quest Investigation Portal database.
+                    </div>
+                  )}
+
+                  {/* Closed status banner */}
+                  {currentCase.status.includes('Investigated') && (
+                    <div className={currentCase.status.includes('Approved') ? 'btn-success' : 'btn-danger'} 
+                         style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderRadius: '8px', marginTop: '20px', fontSize: '14px', fontWeight: 'bold' }}>
+                      {currentCase.status.includes('Approved') ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+                      Claim investigation review completed. Decision status: {currentCase.status.toUpperCase()}.
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
             {/* Split Screen Grid */}
             <div className="grid-main">
@@ -1814,6 +1844,8 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
             </div>
           </div>
         )}
+      </div>
+    )}
 
         {/* VIEW 4: SEARCH ENGINE WORKBENCH & LAB */}
         {currentView === 'workbench' && (
