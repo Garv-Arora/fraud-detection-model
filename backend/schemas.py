@@ -187,12 +187,12 @@ class SearchWorkbenchRequest(BaseModel):
 class SearchWorkbenchResultItem(BaseModel):
     title: str
     url: str
-    snippet: str
+    snippet: str = ""
     domain: Optional[str] = None
-    source: str
-    engine: str
+    source: str = "Web"
+    engine: Optional[str] = "Multi-Engine"
     publish_date: Optional[str] = None
-    query_used: str
+    query_used: Optional[str] = ""
     relevance_score: float = 50.0
     matched_keywords: List[str] = []
     full_article_text: Optional[str] = None

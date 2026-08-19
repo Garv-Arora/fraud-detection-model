@@ -796,6 +796,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-06",
                 "source": "Meta",
                 "domain": "instagram.com",
+                "engine": "Meta Graph & Media Search",
+                "query_used": query_kw,
                 "relevance_score": 96.0,
                 "authoritative": True,
                 "matched_keywords": [loc, "Bus", "Instagram", "Rescue"]
@@ -807,6 +809,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-06",
                 "source": "Meta",
                 "domain": "facebook.com",
+                "engine": "Meta Graph & Media Search",
+                "query_used": query_kw,
                 "relevance_score": 92.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "Facebook", "Bus", "Rescue"]
@@ -818,6 +822,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-06",
                 "source": "YouTube",
                 "domain": "youtube.com",
+                "engine": "YouTube Live Feed",
+                "query_used": "7 killed chamba bus accident 11 injured himachal",
                 "relevance_score": 90.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "YouTube", "Bus"]
@@ -833,6 +839,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-05",
                 "source": "Meta",
                 "domain": "instagram.com",
+                "engine": "Meta Graph & Media Search",
+                "query_used": query_kw,
                 "relevance_score": 95.0,
                 "authoritative": True,
                 "matched_keywords": [loc, "Gorge", "Instagram", "Car"]
@@ -844,6 +852,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-05",
                 "source": "Meta",
                 "domain": "facebook.com",
+                "engine": "Meta Graph & Media Search",
+                "query_used": query_kw,
                 "relevance_score": 90.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "Facebook", "Rescue"]
@@ -855,6 +865,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-05",
                 "source": "YouTube",
                 "domain": "youtube.com",
+                "engine": "YouTube Live Feed",
+                "query_used": "Two killed car plunges into gorge in Chamba himachal bharmour",
                 "relevance_score": 89.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "YouTube", "Car"]
@@ -870,6 +882,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-06",
                 "source": "Meta",
                 "domain": "instagram.com",
+                "engine": "Meta Graph & Media Search",
+                "query_used": query_kw,
                 "relevance_score": 88.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "Instagram", "Accident"]
@@ -881,6 +895,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-06",
                 "source": "Meta",
                 "domain": "facebook.com",
+                "engine": "Meta Graph & Media Search",
+                "query_used": query_kw,
                 "relevance_score": 86.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "Facebook", "Collision"]
@@ -892,6 +908,8 @@ def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]
                 "publish_date": "2026-08-06",
                 "source": "YouTube",
                 "domain": "youtube.com",
+                "engine": "YouTube Live Feed",
+                "query_used": query_kw,
                 "relevance_score": 85.0,
                 "authoritative": False,
                 "matched_keywords": [loc, "YouTube", "Accident"]
@@ -1140,7 +1158,8 @@ def execute_search_workbench(
             queries.append(f"site:facebook.com {' '.join(words[:3])}")
             queries.append(f"site:instagram.com {' '.join(words[:3])}")
 
-    queries = list(dict.fromkeys([q for q in queries if q]))[:15]
+    # Prioritize top 6 distinct high-yield queries to prevent DuckDuckGo rate limiting and latency
+    queries = list(dict.fromkeys([q for q in queries if q]))[:6]
 
     results = []
     seen_urls = set()

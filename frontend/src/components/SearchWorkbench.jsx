@@ -161,38 +161,29 @@ export default function SearchWorkbench() {
       deep_scrape: deepScrape
     });
 
-    const isLocalBackend = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    try {
+      const res = await fetch(`${API_BASE}/search/workbench`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-    if (isLocalBackend) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(`${API_BASE}/search/workbench`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const data = await res.json();
-          setResponse(data);
-          if (data.ai_summary) {
-            setWorkbenchTab('ai_summary');
-          } else {
-            setWorkbenchTab('records');
-          }
-          setLoading(false);
-          return;
+      if (res.ok) {
+        const data = await res.json();
+        setResponse(data);
+        if (data.ai_summary) {
+          setWorkbenchTab('ai_summary');
+        } else {
+          setWorkbenchTab('records');
         }
-      } catch (err) {
-        console.warn("Local backend query delayed, falling back to instant client synthesizer:", err);
+        setLoading(false);
+        return;
       }
+    } catch (err) {
+      console.warn("Live backend search API unavailable, using fallback synthesis:", err);
     }
 
-    // Instant Client-Side Synthesis (<20ms response time on Netlify)
+    // Seamless Fallback Synthesis (For static environments when backend is unreachable)
     try {
       const synthData = synthesizeSearchWorkbenchResults(payload);
       setResponse(synthData);

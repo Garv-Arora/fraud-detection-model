@@ -505,7 +505,7 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
     if openai_key:
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=openai_key)
+            client = OpenAI(api_key=openai_key, max_retries=0, timeout=2.0)
             prompt = f"""You are the Google Gemini AI Overview Engine for Universal Sompo General Insurance.
 Your task is to analyze all the scraped webpage articles and search findings below, and write a beautifully formatted, highly structured Gemini-Style AI Overview of what happened in this accident.
 
@@ -567,11 +567,12 @@ PRODUCE THE AI OVERVIEW USING THESE EXACT MARKDOWN HEADERS:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,
-                max_tokens=1000
+                max_tokens=1000,
+                timeout=3.0
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            logger.warning(f"OpenAI synthesis failed, falling back to Local NLP Synthesizer: {e}")
+            logger.warning(f"OpenAI synthesis delayed or failed, falling back to instant Local NLP Synthesizer: {e}")
 
     # 2. Local Intelligent NLP Synthesizer (Extracts real facts directly from top discovered articles)
     top_ev = top_evidences[0]
