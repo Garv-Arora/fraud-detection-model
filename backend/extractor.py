@@ -4,7 +4,7 @@ import json
 import io
 import zipfile
 import logging
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 from pypdf import PdfReader
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -376,6 +376,139 @@ def extract_claim_id_from_text(text: str) -> str:
         if m:
             return m.group(1).strip()
     return ""
+
+def extract_facts_from_excel(file_path_or_bytes: Any) -> List[Tuple[Dict[str, Any], Dict[str, float]]]:
+    """
+    High-resilience Excel workbook parser for Universal Sompo claim sheets.
+    Extracts all 30 claim fact headers from:
+    - Multi-sheet workbooks (scans all sheets)
+    - Horizontal tabular claims (headers on rows 0 to 10)
+    - Vertical key-value single/multi-claim sheets
+    - Header offsets and title banners
+    - All 30-claim fact synonym variations
+    Returns list of (full_facts_dict, confidence_scores_dict)
+    """
+    import pandas as pd
+    
+    def clean_val(val):
+        if val is None:
+            return None
+        s = str(val).strip()
+        if s.lower() in ['nan', 'none', 'null', 'nat', '']:
+            return None
+        if isinstance(val, pd.Timestamp):
+            return val.strftime('%Y-%m-%d')
+        return s
+
+    FIELD_SYNONYMS = {
+        'claim_id': ['claim no', 'claim number', 'claim id', 'claim_no', 'claim#', 'insurer claim no'],
+        'policy_information': ['policy information', 'policy no', 'policy number', 'policy_no', 'policy#', 'policy'],
+        'insured_name': ['insured name', 'insured', 'claimant name', 'customer name', 'policyholder'],
+        'insured_address': ['insured address', 'address', 'residence address', 'customer address'],
+        'insured_contact_no': ['insured contact no', 'insured contact', 'insured phone', 'insured mobile', 'contact no', 'mobile'],
+        'vehicle_numbers': ['vehicle registration numbers', 'vehicle no', 'vehicle registration', 'registration no', 'reg no', 'vehicle number', 'vehicle_no'],
+        'vehicle_make': ['vehicle make', 'make', 'manufacturer', 'brand'],
+        'vehicle_model': ['vehicle model', 'model', 'variant'],
+        'driver_name': ['driver name', 'driver', 'driver\'s name', 'name of driver'],
+        'driver_contact_no': ['driver contact no', 'driver contact', 'driver dl', 'dl number', 'driving licence', 'driver phone'],
+        'spot_of_accident': ['spot of accident', 'accident spot', 'place of accident', 'accident place', 'place of loss', 'loss location', 'accident location', 'spot'],
+        'accident_date_time': ['date of accident', 'accident date', 'accident date time', 'date of loss', 'loss date', 'accident time', 'time of accident'],
+        'accident_location_city': ['accident location city', 'city', 'location city', 'accident city', 'district'],
+        'accident_location_state': ['accident location state', 'state', 'location state', 'accident state'],
+        'accident_location_region': ['accident location region', 'region', 'zone'],
+        'FIR_cause_narrative': ['cause of accident/ nature of loss', 'cause of accident', 'nature of loss', 'claim narrative', 'fir cause narrative', 'loss description', 'accident description', 'fir narrative', 'narrative', 'loss details', 'incident description', 'case narrative'],
+        'intimation_date': ['intimation date', 'date of intimation'],
+        'fir_date': ['fir date', 'date of fir'],
+        'fir_time': ['fir time', 'time of fir'],
+        'police_station': ['police station name', 'police station', 'ps name', 'ps'],
+        'police_station_district': ['police station district', 'ps district'],
+        'state': ['state'],
+        'no_of_occupants': ['no of occupants', 'occupants', 'passengers'],
+        'news_check': ['news check', 'news'],
+        'social_media_check': ['social media check', 'social media'],
+        'past_record_vehicle': ['past record of vehicle', 'past record'],
+        'call_112_check': ['call on 112', 'call 112', '112 call'],
+        'call_108_check': ['call on 108', 'call 108', '108 call'],
+        'hospital_name': ['hospital name', 'hospital', 'treatment hospital'],
+        'crime_check': ['crime check', 'crime', 'ipc'],
+        'io_name': ['io name', 'investigating officer', 'io'],
+        'supporting_information': ['supporting information', 'remarks', 'additional information', 'notes']
+    }
+
+    results = []
+    try:
+        with pd.ExcelFile(file_path_or_bytes) as xl:
+            for sheet_name in xl.sheet_names:
+                try:
+                    raw_df = pd.read_excel(xl, sheet_name=sheet_name, header=None)
+                    if raw_df.empty or raw_df.shape[0] < 1:
+                        continue
+                        
+                    # 1. Check vertical key-value pair (e.g. Column 0=Key, Column 1=Value)
+                    for k_col in range(min(4, raw_df.shape[1]-1)):
+                        v_col = k_col + 1
+                        kv_facts = {}
+                        for r_idx, row in raw_df.iterrows():
+                            k_val = clean_val(row[k_col])
+                            v_val = clean_val(row[v_col])
+                            if k_val and v_val:
+                                k_str = k_val.lower().strip()
+                                for field, syns in FIELD_SYNONYMS.items():
+                                    if any(s in k_str for s in syns):
+                                        if field == 'vehicle_numbers':
+                                            kv_facts[field] = [v.strip() for v in re.split(r'[,;\n]', v_val) if v.strip()]
+                                        else:
+                                            kv_facts[field] = v_val
+                                        break
+                        if len(kv_facts) >= 2 and ('claim_id' in kv_facts or 'vehicle_numbers' in kv_facts or 'insured_name' in kv_facts):
+                            results.append(kv_facts)
+                            
+                    # 2. Check horizontal table: scan rows 0-10 for header row
+                    for header_row in range(min(10, raw_df.shape[0])):
+                        potential_headers = [str(x).strip().lower() for x in raw_df.iloc[header_row] if pd.notna(x)]
+                        matches = sum(1 for h in potential_headers if any(syn in h for syns in FIELD_SYNONYMS.values() for syn in syns))
+                        if matches >= 2:
+                            df = pd.read_excel(xl, sheet_name=sheet_name, header=header_row)
+                            col_map = {}
+                            for col in df.columns:
+                                col_str = str(col).strip().lower()
+                                for field, syns in FIELD_SYNONYMS.items():
+                                    if any(s in col_str for s in syns):
+                                        col_map[col] = field
+                                        break
+                            
+                            for _, row in df.iterrows():
+                                row_facts = {}
+                                for col, field in col_map.items():
+                                    val = clean_val(row[col])
+                                    if val is not None:
+                                        if field == 'vehicle_numbers':
+                                            row_facts[field] = [v.strip() for v in re.split(r'[,;\n]', val) if v.strip()]
+                                        else:
+                                            row_facts[field] = val
+                                if row_facts.get('claim_id') or row_facts.get('vehicle_numbers') or row_facts.get('insured_name'):
+                                    results.append(row_facts)
+                            break
+                except Exception as se:
+                    logger.warning(f"Error parsing sheet '{sheet_name}': {se}")
+                    continue
+    except Exception as e:
+        logger.error(f"Error reading Excel workbook: {e}")
+
+    # Deduplicate results by claim_id, keeping the record with the most populated fields
+    dedup = {}
+    for r in results:
+        cid = r.get('claim_id') or ('CLAIM-' + str(hash(str(r)) % 100000))
+        r['claim_id'] = cid
+        if cid not in dedup or len(r) > len(dedup[cid]):
+            dedup[cid] = r
+            
+    final_list = []
+    for facts in dedup.values():
+        full_facts, conf = fill_defaults_for_facts(facts)
+        final_list.append((full_facts, conf))
+        
+    return final_list
 
 def extract_facts_from_text(text: str, claim_id: str = "") -> Tuple[Dict[str, Any], Dict[str, float]]:
     """

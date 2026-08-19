@@ -579,8 +579,13 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
       if (res.ok) {
         const data = await res.json();
         setImportStatus(data.message);
+        if (data.facts) {
+          setExtractedFacts(data.facts);
+          setConfidenceScores(data.confidence_scores || {});
+        }
         setExcelFile(null);
-        document.getElementById('excel-file-input').value = '';
+        const fileInp = document.getElementById('excel-file-input');
+        if (fileInp) fileInp.value = '';
         fetchCases();
       } else {
         const err = await res.json();

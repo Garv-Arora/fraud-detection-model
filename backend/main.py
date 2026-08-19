@@ -560,7 +560,7 @@ async def upload_excel_claims(
     db: Session = Depends(get_db)
 ):
     filename = file.filename
-    if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
+    if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".xlsm")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid file format. Please upload an Excel file (.xlsx or .xls)."
@@ -571,62 +571,27 @@ async def upload_excel_claims(
         with open(temp_path, "wb") as f:
             f.write(await file.read())
             
-        df = pd.read_excel(temp_path)
+        extracted_list = extractor.extract_facts_from_excel(temp_path)
+        if not extracted_list:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No claim records could be extracted from the uploaded Excel file. Please verify column headers."
+            )
+            
         imported_claims = []
+        primary_facts = None
+        primary_conf = None
         
-        def get_val(row, *keys):
-            for k in keys:
-                for col in row.index:
-                    if k.lower() in str(col).strip().lower():
-                        v = str(row[col])
-                        if v and v.lower() != "nan":
-                            return v.strip()
-            return None
-
-        for idx, row in df.iterrows():
-            claim_no = get_val(row, "Claim No", "Claim Number", "Claim ID")
+        for full_facts, confidence in extracted_list:
+            claim_no = full_facts.get("claim_id")
             if not claim_no:
                 continue
                 
+            if primary_facts is None:
+                primary_facts = full_facts
+                primary_conf = confidence
+                
             existing = db.query(Case).filter(Case.claim_id == claim_no).first()
-            
-            facts = {
-                "claim_id": claim_no,
-                "policy_information": get_val(row, "Policy Information", "Policy No"),
-                "insured_name": get_val(row, "Insured Name"),
-                "insured_address": get_val(row, "Insured Address"),
-                "insured_contact_no": get_val(row, "Insured contact no", "Insured Contact"),
-                "vehicle_numbers": [get_val(row, "Vehicle Registration Numbers", "Vehicle No", "Vehicle Registration") or "VEHICLE-UNREGISTERED"],
-                "vehicle_make": get_val(row, "Vehicle Make", "Make"),
-                "vehicle_model": get_val(row, "Vehicle Model", "Model"),
-                "driver_name": get_val(row, "Driver Name"),
-                "driver_contact_no": get_val(row, "Driver contact no", "DL Number"),
-                "spot_of_accident": get_val(row, "Spot of Accident", "Accident Spot"),
-                "accident_date_time": get_val(row, "Accident Date", "Date of Accident"),
-                "accident_location_city": get_val(row, "Accident Location City", "City"),
-                "accident_location_state": get_val(row, "Accident Location State", "State"),
-                "accident_location_region": get_val(row, "Accident Location Region", "Region"),
-                "FIR_cause_narrative": get_val(row, "Cause of accident/ Nature of loss", "Claim Narrative", "Cause of accident"),
-                "intimation_date": get_val(row, "Intimation Date"),
-                "fir_date": get_val(row, "FIR Date"),
-                "fir_time": get_val(row, "FIR Time"),
-                "police_station": get_val(row, "Police Station Name", "Police Station"),
-                "police_station_district": get_val(row, "Police Station District"),
-                "state": get_val(row, "State"),
-                "no_of_occupants": get_val(row, "No of occupants"),
-                "news_check": get_val(row, "News check"),
-                "social_media_check": get_val(row, "Social Media Check"),
-                "past_record_vehicle": get_val(row, "Past record of vehicle"),
-                "call_112_check": get_val(row, "Call on 112"),
-                "call_108_check": get_val(row, "Call on 108"),
-                "hospital_name": get_val(row, "Hospital Name"),
-                "crime_check": get_val(row, "Crime Check"),
-                "io_name": get_val(row, "IO Name"),
-                "supporting_information": get_val(row, "Supporting Information")
-            }
-            
-            full_facts, confidence = extractor.fill_defaults_for_facts(facts)
-            
             if not existing:
                 db_case = Case(claim_id=claim_no)
                 save_facts_to_case_model(db_case, full_facts, confidence)
@@ -647,8 +612,10 @@ async def upload_excel_claims(
             
         return {
             "success": True,
-            "message": f"Successfully processed Excel file '{filename}'. Ingested/updated {len(imported_claims)} claims.",
-            "claims": imported_claims
+            "message": f"Successfully extracted and imported {len(imported_claims)} claims from Excel file '{filename}'.",
+            "claims": imported_claims,
+            "facts": primary_facts,
+            "confidence_scores": primary_conf
         }
     except HTTPException as he:
         raise he
@@ -660,7 +627,8 @@ async def upload_excel_claims(
         )
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try: os.remove(temp_path)
+            except Exception: pass
 
 @app.post("/api/cases/ingest-zip", response_model=schemas.IngestionFactsResponse)
 async def ingest_claim_zip(
@@ -751,15 +719,29 @@ async def ingest_claim_file(
         with open(temp_path, "wb") as f:
             f.write(await file.read())
             
-        if filename.endswith(".xlsx") or filename.endswith(".xls"):
-            # Excel handler
-            df = pd.read_excel(temp_path)
-            for _, row in df.iterrows():
-                extracted_no = str(row.get("Claim Number", row.get("Claim No ", ""))).strip()
-                if extracted_no and extracted_no != "nan":
-                    claim_id = extracted_no
-                    break
-            facts, confidence = extractor.extract_facts_from_text(f"Excel file: {filename}", claim_id or "EXCEL-CLAIM-01")
+        if filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".xlsm"):
+            # High-resilience Excel workbook parser
+            extracted_list = extractor.extract_facts_from_excel(temp_path)
+            if extracted_list:
+                facts, confidence = extracted_list[0]
+                if claim_id:
+                    facts["claim_id"] = claim_id
+                    
+                # If workbook contains multiple claims, ingest the other claims as well
+                for extra_facts, extra_conf in extracted_list[1:]:
+                    e_cid = extra_facts.get("claim_id")
+                    if e_cid:
+                        e_case = db.query(Case).filter(Case.claim_id == e_cid).first()
+                        if not e_case:
+                            e_case = Case(claim_id=e_cid)
+                            save_facts_to_case_model(e_case, extra_facts, extra_conf)
+                            db.add(e_case)
+                            db.commit()
+                        else:
+                            save_facts_to_case_model(e_case, extra_facts, extra_conf)
+                            db.commit()
+            else:
+                facts, confidence = extractor.fill_defaults_for_facts({"claim_id": claim_id or "EXCEL-CLAIM-01"})
         elif filename.endswith(".pdf"):
             content = extractor.extract_text_from_pdf(temp_path)
             facts, confidence = extractor.extract_facts_from_text(content, claim_id or "")
@@ -775,7 +757,8 @@ async def ingest_claim_file(
         )
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try: os.remove(temp_path)
+            except Exception: pass
             
     parsed_claim_no = facts.get("claim_id") or claim_id or ("CLAIM-" + str(hash(filename) % 100000))
     facts["claim_id"] = parsed_claim_no
