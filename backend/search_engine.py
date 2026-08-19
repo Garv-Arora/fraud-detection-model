@@ -219,6 +219,57 @@ def generate_search_queries(facts: Dict[str, Any]) -> List[str]:
     queries = list(dict.fromkeys([q for q in queries if q]))
     return queries[:10]
 
+NUM_WORD_MAP = {
+    '1': 1, 'one': 1,
+    '2': 2, 'two': 2,
+    '3': 3, 'three': 3,
+    '4': 4, 'four': 4,
+    '5': 5, 'five': 5,
+    '6': 6, 'six': 6,
+    '7': 7, 'seven': 7,
+    '8': 8, 'eight': 8,
+    '9': 9, 'nine': 9,
+    '10': 10, 'ten': 10,
+    '11': 11, 'eleven': 11,
+    '12': 12, 'twelve': 12,
+    '13': 13, 'thirteen': 13,
+    '14': 14, 'fourteen': 14
+}
+
+def extract_target_casualties(query: str) -> Optional[int]:
+    """Extracts explicit casualty target if user specified e.g. '2 killed', 'two dead'."""
+    m = re.search(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|\d+)\s+(?:killed|dead|fatalities|casualties|deaths|died)\b', query, re.IGNORECASE)
+    if m:
+        word = m.group(1).lower()
+        return NUM_WORD_MAP.get(word, int(word) if word.isdigit() else None)
+    return None
+
+def is_conflicting_casualty(article_text: str, target_cas: Optional[int]) -> bool:
+    """Returns True if the article explicitly reports a DIFFERENT casualty count."""
+    if not target_cas:
+        return False
+
+    matches = re.findall(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|\d+)\s+(?:killed|dead|fatalities|casualties|deaths|died|tourists\s+killed|people\s+killed|members\s+dead)\b', article_text, re.IGNORECASE)
+    found_numbers = set()
+    for m in matches:
+        w = m.lower()
+        val = NUM_WORD_MAP.get(w, int(w) if w.isdigit() else None)
+        if val is not None:
+            found_numbers.add(val)
+
+    num_matches = re.findall(r'\b(\d+)\s+(?:killed|dead|fatalities)\b', article_text, re.IGNORECASE)
+    for nm in num_matches:
+        if nm.isdigit():
+            found_numbers.add(int(nm))
+
+    if not found_numbers:
+        return False
+
+    if target_cas in found_numbers:
+        return False
+
+    return True
+
 ENTERTAINMENT_BLACKLIST = [
     'song', 'songs', 'hit songs', 'jukebox', 'music', 'lyrics', 'audio', 'video song', 'full song',
     'album', 'singer', 'dj remix', 'remix', 'bhajan', 'aarti', 'katha', 'movie', 'film',
@@ -1177,6 +1228,18 @@ def execute_search_workbench(
             if sm["url"] not in seen_urls:
                 seen_urls.add(sm["url"])
                 results.append(sm)
+
+    # 4. Strict Casualty Discrepancy Filter
+    # If the user explicitly searched for "2 killed" / "7 killed", remove articles reporting conflicting death counts (e.g. 6 killed or 98 killed)
+    target_cas = extract_target_casualties(raw_combined)
+    if target_cas:
+        clean_results = []
+        for r in results:
+            text = f"{r.get('title', '')} {r.get('snippet', '')}"
+            if not is_conflicting_casualty(text, target_cas):
+                clean_results.append(r)
+        if clean_results:
+            results = clean_results
                     
     # Strict accident filter if requested
     if strict_accident_filter:

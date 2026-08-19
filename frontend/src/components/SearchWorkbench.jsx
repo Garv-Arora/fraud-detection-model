@@ -193,23 +193,63 @@ export default function SearchWorkbench() {
     a.click();
   };
 
+const NUM_WORD_MAP = {
+  '1': 1, 'one': 1, '2': 2, 'two': 2, '3': 3, 'three': 3, '4': 4, 'four': 4,
+  '5': 5, 'five': 5, '6': 6, 'six': 6, '7': 7, 'seven': 7, '8': 8, 'eight': 8,
+  '9': 9, 'nine': 9, '10': 10, 'ten': 10
+};
+
+function extractTargetCasualties(queryText) {
+  if (!queryText) return null;
+  const m = queryText.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:killed|dead|fatalities|casualties|deaths|died)\b/i);
+  if (m) {
+    const word = m[1].toLowerCase();
+    return NUM_WORD_MAP[word] || (parseInt(word, 10) || null);
+  }
+  return null;
+}
+
+function isConflictingCasualty(text, targetCas) {
+  if (!targetCas || !text) return false;
+  const matches = text.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:killed|dead|fatalities|casualties|deaths|died|tourists\s+killed|people\s+killed|members\s+dead)\b/gi) || [];
+  const found = new Set();
+  matches.forEach(m => {
+    const w = m.split(/\s+/)[0].toLowerCase();
+    const val = NUM_WORD_MAP[w] || parseInt(w, 10);
+    if (val) found.add(val);
+  });
+  if (found.size === 0) return false;
+  if (found.has(targetCas)) return false;
+  return true;
+}
+
+  // Extract explicit casualty constraint from active search inputs
+  const targetCas = extractTargetCasualties(query || `${insuredName} ${vehicleNo} ${location} ${incidentKeywords}`);
+
+  // Base results filtered against conflicting casualty reports
+  const casualtyFilteredResults = (response?.results || []).filter(r => {
+    if (!targetCas) return true;
+    const text = `${r.title || ''} ${r.snippet || ''}`;
+    return !isConflictingCasualty(text, targetCas);
+  });
+
   // Filtered results by active category (Unifies Instagram & Facebook into Meta)
-  const filteredResults = response?.results?.filter(r => {
+  const filteredResults = casualtyFilteredResults.filter(r => {
     if (activeCategory === 'ALL') return true;
     if (activeCategory === 'News') return r.source === 'News' || r.source === 'Google News' || r.authoritative;
     if (activeCategory === 'Web') return r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'));
     if (activeCategory === 'Meta') return r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')));
     if (activeCategory === 'YouTube') return r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')));
     return r.source === activeCategory;
-  }) || [];
+  });
 
   const getCategoryCount = (cat) => {
-    if (!response?.results) return 0;
-    if (cat === 'ALL') return response.results.length;
-    if (cat === 'News') return response.results.filter(r => r.source === 'News' || r.source === 'Google News' || r.authoritative).length;
-    if (cat === 'Web') return response.results.filter(r => r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'))).length;
-    if (cat === 'Meta') return response.results.filter(r => r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')))).length;
-    if (cat === 'YouTube') return response.results.filter(r => r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')))).length;
+    if (!casualtyFilteredResults) return 0;
+    if (cat === 'ALL') return casualtyFilteredResults.length;
+    if (cat === 'News') return casualtyFilteredResults.filter(r => r.source === 'News' || r.source === 'Google News' || r.authoritative).length;
+    if (cat === 'Web') return casualtyFilteredResults.filter(r => r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'))).length;
+    if (cat === 'Meta') return casualtyFilteredResults.filter(r => r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')))).length;
+    if (cat === 'YouTube') return casualtyFilteredResults.filter(r => r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')))).length;
     return 0;
   };
 
