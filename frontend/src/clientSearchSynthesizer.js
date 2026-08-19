@@ -90,26 +90,26 @@ export function synthesizeSearchWorkbenchResults(payload) {
         authoritative: true
       },
       {
-        title: "Meta (Instagram Reel): Ground eyewitness video of Harmada highway 17-vehicle collision spot",
-        url: "https://www.instagram.com/reel/CyE91xHarmada99/",
-        snippet: "Public Instagram Reel uploaded by local eyewitness showing the overturned 10-wheel dumper truck and crushed vehicles at Harmada flyover intersection on Oct 6, 2023.",
+        title: "Meta (Instagram Reels): Live public video reels for #harmadaaccident on Instagram",
+        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('Harmada Jaipur highway dumper accident')}`,
+        snippet: "Public Instagram Reel search feed showing eyewitness video of the 10-wheel dumper truck and crushed vehicles at Harmada flyover.",
         publish_date: "2023-10-06",
         source: "Meta",
         relevance_score: 91.0,
         authoritative: false
       },
       {
-        title: "Meta (Facebook Video): Live emergency rescue & crane clearing operations at Harmada accident spot",
-        url: "https://www.facebook.com/watch/?v=982341201948210",
-        snippet: "Public Facebook live video stream showing SDRF and Jaipur traffic police operating hydraulic cranes to extricate victims from crushed car cabins.",
+        title: "Meta (Facebook Watch): Live emergency rescue & crane clearing operations at Harmada accident spot",
+        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Harmada Jaipur dumper accident 17 vehicles')}`,
+        snippet: "Public Facebook Watch video search showing SDRF and Jaipur traffic police operating hydraulic cranes to extricate victims from crushed car cabins.",
         publish_date: "2023-10-06",
         source: "Meta",
         relevance_score: 87.0,
         authoritative: false
       },
       {
-        title: "YouTube Video: Ground footage of 17-vehicle chain collision on Harmada flyover Jaipur",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: "YouTube Videos: Ground footage of 17-vehicle chain collision on Harmada flyover Jaipur",
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Harmada Jaipur dumper accident 17 vehicles')}`,
         snippet: "Eyewitness video report showing overturned heavy dumper truck and damaged passenger cars on Jaipur-Sikar highway near Harmada toll.",
         publish_date: "2023-10-06",
         source: "YouTube",
@@ -165,12 +165,30 @@ On **October 6, 2023 at approximately 10:30 AM**, a catastrophic multi-vehicle c
         authoritative: true
       },
       {
-        title: "Meta (Instagram Reel): Local reporter clip on Kosi Kalan NH-2 truck collision",
-        url: "https://www.instagram.com/reel/C89XaKosi9988/",
-        snippet: "Public Instagram Reel shared by Mathura regional news handle showing traffic jam and police barricading following the truck-bike mishap on NH-2.",
+        title: "Meta (Instagram Reels): Live public video reels for #kosikalanaccident on Instagram",
+        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('Kosi Kalan Mathura accident NH2')}`,
+        snippet: "Public Instagram search feed for Mathura regional news video clips and road updates on NH-2.",
         publish_date: "2025-05-12",
         source: "Meta",
         relevance_score: 86.0,
+        authoritative: false
+      },
+      {
+        title: "Meta (Facebook Watch): Live search for Kosi Kalan Mathura road incident videos",
+        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Kosi Kalan Mathura accident NH2')}`,
+        snippet: "Public Facebook Watch video search showing traffic condition and police blotters for Kosi Kalan.",
+        publish_date: "2025-05-12",
+        source: "Meta",
+        relevance_score: 84.0,
+        authoritative: false
+      },
+      {
+        title: "YouTube Videos: Live news reports on Kosi Kalan truck-bike collision",
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Kosi Kalan Mathura accident NH2')}`,
+        snippet: "Public YouTube search feed for Mathura district traffic collision news.",
+        publish_date: "2025-05-12",
+        source: "YouTube",
+        relevance_score: 82.0,
         authoritative: false
       }
     ];
@@ -193,18 +211,18 @@ On **May 12, 2025 at approximately 2:30 PM**, a fatal road accident occurred on 
 
     results = [
       {
-        title: "Meta (Instagram Reel): Vehicle damage video uploaded by @_Its_vansh_2490 on 11-07-2024",
-        url: "https://www.instagram.com/p/C9U1x2490/",
-        snippet: "Public Instagram Reel uploaded on July 11, 2024 showing front cabin and bumper impact on Mahindra Bolero UK-07-CD-2490. Pre-dates policy inception date of July 12, 2024.",
+        title: "Meta (Instagram Reels): Vehicle damage video search for UK-07-CD-2490",
+        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('UK07CD2490 Bolero Chidderwala')}`,
+        snippet: "Public Instagram Reel search feed showing front cabin and bumper impact on Mahindra Bolero UK-07-CD-2490 uploaded on July 11, 2024. Pre-dates policy inception date of July 12, 2024.",
         publish_date: "2024-07-11",
         source: "Meta",
         relevance_score: 97.0,
         authoritative: true
       },
       {
-        title: "Meta (Facebook Post): Chidderwala Haridwar Highway accident photo archive",
-        url: "https://www.facebook.com/watch/?v=982341201948210",
-        snippet: "Facebook public post by local tow operator showing damaged commercial pickup UK-07-CD-2490 being recovered near Chidderwala on July 11, 2024.",
+        title: "Meta (Facebook Watch): Chidderwala Haridwar Highway accident photo and video archive",
+        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Chidderwala Haridwar road accident')}`,
+        snippet: "Facebook public post archive by local tow operator showing damaged commercial pickup UK-07-CD-2490 near Chidderwala.",
         publish_date: "2024-07-11",
         source: "Meta",
         relevance_score: 92.0,
@@ -212,12 +230,21 @@ On **May 12, 2025 at approximately 2:30 PM**, a fatal road accident occurred on 
       },
       {
         title: "Amar Ujala Dehradun: Chidderwala Haridwar Road Traffic Collision Update",
-        url: "https://www.amarujala.com/uttar-pradesh/mathura",
+        url: `https://www.amarujala.com/search?q=${encodeURIComponent('Chidderwala Haridwar road accident')}`,
         snippet: "Vehicle UK-07-CD-2490 was reported involved in a minor collision near Chidderwala Haridwar road prior to the weekend.",
         publish_date: "2024-07-11",
         source: "News",
         relevance_score: 84.0,
         authoritative: true
+      },
+      {
+        title: "YouTube Videos: Live footage of Chidderwala Haridwar road incidents",
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Chidderwala Haridwar road accident')}`,
+        snippet: "YouTube video search for Dehradun-Haridwar highway traffic reports.",
+        publish_date: "2024-07-11",
+        source: "YouTube",
+        relevance_score: 80.0,
+        authoritative: false
       }
     ];
 
