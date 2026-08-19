@@ -250,12 +250,11 @@ export default function SearchWorkbench() {
     return !isConflictingCasualty(text, targetCas);
   });
 
-  // Filtered results by active category (Unifies Instagram & Facebook into Meta)
+  // Filtered results by active category
   const filteredResults = casualtyFilteredResults.filter(r => {
     if (activeCategory === 'ALL') return true;
     if (activeCategory === 'News') return r.source === 'News' || r.source === 'Google News' || r.authoritative;
-    if (activeCategory === 'Web') return r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'));
-    if (activeCategory === 'Meta') return r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')));
+    if (activeCategory === 'Web') return r.source === 'Web' || (!r.source && !r.url?.includes('youtube'));
     if (activeCategory === 'YouTube') return r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')));
     return r.source === activeCategory;
   });
@@ -264,8 +263,7 @@ export default function SearchWorkbench() {
     if (!casualtyFilteredResults) return 0;
     if (cat === 'ALL') return casualtyFilteredResults.length;
     if (cat === 'News') return casualtyFilteredResults.filter(r => r.source === 'News' || r.source === 'Google News' || r.authoritative).length;
-    if (cat === 'Web') return casualtyFilteredResults.filter(r => r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'))).length;
-    if (cat === 'Meta') return casualtyFilteredResults.filter(r => r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')))).length;
+    if (cat === 'Web') return casualtyFilteredResults.filter(r => r.source === 'Web' || (!r.source && !r.url?.includes('youtube'))).length;
     if (cat === 'YouTube') return casualtyFilteredResults.filter(r => r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')))).length;
     return 0;
   };
@@ -652,7 +650,7 @@ export default function SearchWorkbench() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Category Filter Chips */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['ALL', 'News', 'Web', 'Meta', 'YouTube'].map((cat) => {
+                {['ALL', 'News', 'Web', 'YouTube'].map((cat) => {
                   const count = getCategoryCount(cat);
                   const label = cat === 'ALL' ? `All Sources (${count})` : `${cat} (${count})`;
                   return (
@@ -692,7 +690,6 @@ export default function SearchWorkbench() {
                   {filteredResults.map((item, idx) => {
                     const isExpanded = expandedArticles[idx];
                     const isCopied = copiedUrl === item.url;
-                    const isMeta = item.source === 'Meta' || item.source === 'Instagram' || item.source === 'Facebook' || item.url?.includes('instagram.com') || item.url?.includes('facebook.com') || item.url?.includes('fb.watch');
 
                     return (
                       <div key={idx} className="card" style={{ 
@@ -709,13 +706,13 @@ export default function SearchWorkbench() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span className="badge" style={{ 
-                              background: isMeta ? '#FDF2F8' : item.source === 'YouTube' ? '#FEF2F2' : '#F8FAFC', 
-                              color: isMeta ? '#DB2777' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
-                              border: isMeta ? '1px solid #FBCFE8' : item.source === 'YouTube' ? '1px solid #FECACA' : '1px solid #E2E8F0',
+                              background: item.source === 'YouTube' ? '#FEF2F2' : '#F8FAFC', 
+                              color: item.source === 'YouTube' ? '#DC2626' : '#2563EB',
+                              border: item.source === 'YouTube' ? '1px solid #FECACA' : '1px solid #E2E8F0',
                               fontSize: '11px',
                               fontWeight: '800'
                             }}>
-                              {isMeta ? 'Meta' : item.source}
+                              {item.source}
                             </span>
 
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>

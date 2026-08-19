@@ -777,147 +777,6 @@ def synthesize_workbench_benchmark(raw_text: str, anchors: Dict[str, List[str]])
         ])
     return res
 
-def synthesize_meta_social_evidence(raw_text: str, anchors: Dict[str, List[str]]) -> List[Dict[str, Any]]:
-    """Generates real live-clickable Meta (Instagram & Facebook Watch) and YouTube incident search links."""
-    q_lower = raw_text.lower()
-    loc = anchors.get("locations", ["Incident Corridor"])[0] if anchors.get("locations") else "Incident Corridor"
-    veh = anchors.get("vehicle_types", ["Vehicle"])[0] if anchors.get("vehicle_types") else "Vehicle"
-    kw = anchors.get("keywords", ["Accident"])[0] if anchors.get("keywords") else "Accident"
-
-    meta_items = []
-
-    if "7 killed" in q_lower or "seven killed" in q_lower or "bus" in q_lower or "tissa" in q_lower or "bairagarh" in q_lower:
-        query_kw = f"{loc} private bus accident Bairagarh Tissa"
-        meta_items = [
-            {
-                "title": f"Meta (Instagram Reels): Live public video reels for #{loc.replace(' ', '').lower()}accident on Instagram",
-                "url": f"https://www.instagram.com/explore/search/keyword/?q={urllib.parse.quote(query_kw)}",
-                "snippet": f"Public Instagram search feed showing eyewitness reels and video clips of the {loc} private bus accident and rescue operations.",
-                "publish_date": "2026-08-06",
-                "source": "Meta",
-                "domain": "instagram.com",
-                "engine": "Meta Graph & Media Search",
-                "query_used": query_kw,
-                "relevance_score": 96.0,
-                "authoritative": True,
-                "matched_keywords": [loc, "Bus", "Instagram", "Rescue"]
-            },
-            {
-                "title": f"Meta (Facebook Watch): Public video stream & news clips of {loc} bus accident",
-                "url": f"https://www.facebook.com/watch/search/?q={urllib.parse.quote(query_kw)}",
-                "snippet": f"Facebook Watch video search displaying public broadcasts, eyewitness footage, and rescue coverage for {loc} private bus overturn.",
-                "publish_date": "2026-08-06",
-                "source": "Meta",
-                "domain": "facebook.com",
-                "engine": "Meta Graph & Media Search",
-                "query_used": query_kw,
-                "relevance_score": 92.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "Facebook", "Bus", "Rescue"]
-            },
-            {
-                "title": f"YouTube Videos: Live news and footage of 7 killed in {loc} bus mishap",
-                "url": f"https://www.youtube.com/results?search_query={urllib.parse.quote('7 killed chamba bus accident 11 injured himachal')}",
-                "snippet": f"YouTube video search feed delivering ground news reports, drone footage, and eyewitness recordings of the {loc} bus accident.",
-                "publish_date": "2026-08-06",
-                "source": "YouTube",
-                "domain": "youtube.com",
-                "engine": "YouTube Live Feed",
-                "query_used": "7 killed chamba bus accident 11 injured himachal",
-                "relevance_score": 90.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "YouTube", "Bus"]
-            }
-        ]
-    elif "2 killed" in q_lower or "two killed" in q_lower or "gorge" in q_lower or "car" in q_lower or "chamba" in q_lower:
-        query_kw = f"Two killed car plunges into gorge in {loc} Himachal"
-        meta_items = [
-            {
-                "title": f"Meta (Instagram Reels): Live public video reels for #{loc.replace(' ', '').lower()}accident on Instagram",
-                "url": f"https://www.instagram.com/explore/search/keyword/?q={urllib.parse.quote(query_kw)}",
-                "snippet": f"Public Instagram search feed showing local video reels, gorge rescue operations, and ground updates from {loc}.",
-                "publish_date": "2026-08-05",
-                "source": "Meta",
-                "domain": "instagram.com",
-                "engine": "Meta Graph & Media Search",
-                "query_used": query_kw,
-                "relevance_score": 95.0,
-                "authoritative": True,
-                "matched_keywords": [loc, "Gorge", "Instagram", "Car"]
-            },
-            {
-                "title": f"Meta (Facebook Watch): Public videos of {loc} Bharmour car gorge accident",
-                "url": f"https://www.facebook.com/watch/search/?q={urllib.parse.quote(query_kw)}",
-                "snippet": f"Facebook Watch video search displaying community posts and rescue team footage from Lamu-Hilling road in {loc}.",
-                "publish_date": "2026-08-05",
-                "source": "Meta",
-                "domain": "facebook.com",
-                "engine": "Meta Graph & Media Search",
-                "query_used": query_kw,
-                "relevance_score": 90.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "Facebook", "Rescue"]
-            },
-            {
-                "title": f"YouTube Videos: Ground news video reports of {loc} Bharmour car plunge",
-                "url": f"https://www.youtube.com/results?search_query={urllib.parse.quote('Two killed car plunges into gorge in Chamba himachal bharmour')}",
-                "snippet": f"YouTube live video search results covering the fatal car plunge into the 100-meter gorge on Lamu-Hilling road in {loc}.",
-                "publish_date": "2026-08-05",
-                "source": "YouTube",
-                "domain": "youtube.com",
-                "engine": "YouTube Live Feed",
-                "query_used": "Two killed car plunges into gorge in Chamba himachal bharmour",
-                "relevance_score": 89.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "YouTube", "Car"]
-            }
-        ]
-    else:
-        query_kw = f"{loc} {veh} road accident"
-        meta_items = [
-            {
-                "title": f"Meta (Instagram Reels): Public #{loc.replace(' ', '').lower()}accident posts & video reels",
-                "url": f"https://www.instagram.com/explore/search/keyword/?q={urllib.parse.quote(query_kw)}",
-                "snippet": f"Public Instagram search feed for road accident videos, eyewitness footage, and traffic updates in {loc}.",
-                "publish_date": "2026-08-06",
-                "source": "Meta",
-                "domain": "instagram.com",
-                "engine": "Meta Graph & Media Search",
-                "query_used": query_kw,
-                "relevance_score": 88.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "Instagram", "Accident"]
-            },
-            {
-                "title": f"Meta (Facebook Watch): Public video stream & news clips of {loc} accident",
-                "url": f"https://www.facebook.com/watch/search/?q={urllib.parse.quote(query_kw)}",
-                "snippet": f"Facebook Watch video search for public coverage, police reports, and road incident updates in {loc}.",
-                "publish_date": "2026-08-06",
-                "source": "Meta",
-                "domain": "facebook.com",
-                "engine": "Meta Graph & Media Search",
-                "query_used": query_kw,
-                "relevance_score": 86.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "Facebook", "Collision"]
-            },
-            {
-                "title": f"YouTube Videos: Ground news and video coverage for {loc} {veh} accident",
-                "url": f"https://www.youtube.com/results?search_query={urllib.parse.quote(query_kw)}",
-                "snippet": f"YouTube video search delivering relevant regional news clips, footage, and traffic reports for {loc}.",
-                "publish_date": "2026-08-06",
-                "source": "YouTube",
-                "domain": "youtube.com",
-                "engine": "YouTube Live Feed",
-                "query_used": query_kw,
-                "relevance_score": 85.0,
-                "authoritative": False,
-                "matched_keywords": [loc, "YouTube", "Accident"]
-            }
-        ]
-
-    return meta_items
-
 def extract_and_prioritize_anchors(raw_text: str) -> Dict[str, List[str]]:
     """
     Intelligently extracts high-value anchors from noisy or overloaded search text:
@@ -1123,31 +982,22 @@ def execute_search_workbench(
     # --- TIER 2: PROGRESSIVE FRAGMENTED SUB-QUERIES (Fallback sub-combinations) ---
     if primary_veh and primary_loc:
         queries.append(f"{primary_veh} {primary_loc} accident")
-        queries.append(f"site:instagram.com {primary_veh}")
-        queries.append(f"site:facebook.com {primary_veh}")
+        queries.append(f"{primary_veh} {primary_loc} road mishap")
     elif primary_veh:
         queries.append(f"{primary_veh} accident")
-        queries.append(f"site:instagram.com {primary_veh}")
-        queries.append(f"site:facebook.com {primary_veh}")
 
     if primary_loc and primary_kw:
         queries.append(f"{primary_loc} {primary_kw}")
         if '2 killed' in primary_kw.lower():
             queries.append(f"two killed {primary_loc}")
-        queries.append(f"site:facebook.com {primary_loc} {primary_kw}")
-        queries.append(f"site:instagram.com {primary_loc} {primary_kw}")
         queries.append(f"site:youtube.com {primary_loc} {primary_kw} accident")
 
     if primary_loc and primary_model:
         queries.append(f"{primary_loc} {primary_model} accident")
         queries.append(f"{primary_loc} {primary_model} सड़क हादसा")
-        queries.append(f"site:facebook.com {primary_loc} {primary_model}")
-        queries.append(f"site:instagram.com {primary_loc} {primary_model}")
     elif primary_loc:
         queries.append(f"{primary_loc} road accident")
         queries.append(f"{primary_loc} सड़क हादसा")
-        queries.append(f"site:facebook.com {primary_loc} accident")
-        queries.append(f"site:instagram.com {primary_loc} accident")
         queries.append(f"site:youtube.com {primary_loc} accident")
 
     # Fallback to direct query terms if no anchors found
@@ -1155,8 +1005,6 @@ def execute_search_workbench(
         words = [w for w in query.split() if len(w) > 2]
         if words:
             queries.append(" ".join(words[:4]) + " accident")
-            queries.append(f"site:facebook.com {' '.join(words[:3])}")
-            queries.append(f"site:instagram.com {' '.join(words[:3])}")
 
     # Prioritize top 6 distinct high-yield queries to prevent DuckDuckGo rate limiting and latency
     queries = list(dict.fromkeys([q for q in queries if q]))[:6]
@@ -1168,60 +1016,58 @@ def execute_search_workbench(
         q_res = []
 
         # 1. Google News RSS
-        if "site:instagram.com" not in q.lower() and "site:facebook.com" not in q.lower():
-            try:
-                q_enc = urllib.parse.quote(q)
-                rss_url = f"https://news.google.com/rss/search?q={q_enc}&hl=en-IN&gl=IN&ceid=IN:en"
-                resp = requests.get(rss_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=3.5)
-                if resp.status_code == 200:
-                    root = ET.fromstring(resp.content)
-                    for item in root.findall('.//item')[:6]:
-                        title = item.find('title').text if item.find('title') is not None else ''
-                        link = item.find('link').text if item.find('link') is not None else ''
-                        pubDate = item.find('pubDate').text if item.find('pubDate') is not None else None
-                        if link and is_incident_relevant(title, title, link):
-                            q_res.append({
-                                "title": title,
-                                "url": link,
-                                "snippet": f"Google News report: {title}",
-                                "publish_date": pubDate,
-                                "query_used": q,
-                                "source": "News",
-                                "engine": "Google News RSS"
-                            })
-            except Exception:
-                pass
+        try:
+            q_enc = urllib.parse.quote(q)
+            rss_url = f"https://news.google.com/rss/search?q={q_enc}&hl=en-IN&gl=IN&ceid=IN:en"
+            resp = requests.get(rss_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=3.5)
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.content)
+                for item in root.findall('.//item')[:6]:
+                    title = item.find('title').text if item.find('title') is not None else ''
+                    link = item.find('link').text if item.find('link') is not None else ''
+                    pubDate = item.find('pubDate').text if item.find('pubDate') is not None else None
+                    if link and is_incident_relevant(title, title, link):
+                        q_res.append({
+                            "title": title,
+                            "url": link,
+                            "snippet": f"Google News report: {title}",
+                            "publish_date": pubDate,
+                            "query_used": q,
+                            "source": "News",
+                            "engine": "Google News RSS"
+                        })
+        except Exception:
+            pass
 
         # 2. Bing News RSS
-        if "site:instagram.com" not in q.lower() and "site:facebook.com" not in q.lower():
-            try:
-                q_enc = urllib.parse.quote(q)
-                url = f"https://www.bing.com/news/search?q={q_enc}&format=rss"
-                resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}, timeout=3.5)
-                if resp.status_code == 200:
-                    root = ET.fromstring(resp.content)
-                    for item in root.findall('.//item')[:6]:
-                        title = item.find('title').text if item.find('title') is not None else ''
-                        link = item.find('link').text if item.find('link') is not None else ''
-                        pubDate = item.find('pubDate').text if item.find('pubDate') is not None else None
-                        desc = item.find('description').text if item.find('description') is not None else ''
-                        if link and is_incident_relevant(title, desc, link):
-                            q_res.append({
-                                "title": title,
-                                "url": link,
-                                "snippet": desc or f"Bing News: {title}",
-                                "publish_date": pubDate,
-                                "query_used": q,
-                                "source": "News",
-                                "engine": "Bing News RSS"
-                            })
-            except Exception:
-                pass
+        try:
+            q_enc = urllib.parse.quote(q)
+            url = f"https://www.bing.com/news/search?q={q_enc}&format=rss"
+            resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}, timeout=3.5)
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.content)
+                for item in root.findall('.//item')[:6]:
+                    title = item.find('title').text if item.find('title') is not None else ''
+                    link = item.find('link').text if item.find('link') is not None else ''
+                    pubDate = item.find('pubDate').text if item.find('pubDate') is not None else None
+                    desc = item.find('description').text if item.find('description') is not None else ''
+                    if link and is_incident_relevant(title, desc, link):
+                        q_res.append({
+                            "title": title,
+                            "url": link,
+                            "snippet": desc or f"Bing News: {title}",
+                            "publish_date": pubDate,
+                            "query_used": q,
+                            "source": "News",
+                            "engine": "Bing News RSS"
+                        })
+        except Exception:
+            pass
 
-        # 3. DuckDuckGo / Meta Search
+        # 3. DuckDuckGo Search (News & Web)
         try:
             ddgs = DDGS()
-            search_term = q if ("site:" in q.lower() or "accident" in q.lower() or "हादसा" in q) else f"{q} accident"
+            search_term = q if ("accident" in q.lower() or "हादसा" in q) else f"{q} accident"
             ddg_res = list(ddgs.text(search_term, max_results=6))
             for r in ddg_res:
                 u = r.get("href", "").strip()
@@ -1229,10 +1075,10 @@ def execute_search_workbench(
                 b = r.get("body", "")
                 if u and is_incident_relevant(t, b, u):
                     u_lower = u.lower()
-                    source = "Web"
                     if "facebook.com" in u_lower or "fb.watch" in u_lower or "instagram.com" in u_lower:
-                        source = "Meta"
-                    elif "youtube.com" in u_lower or "youtu.be" in u_lower:
+                        continue
+                    source = "Web"
+                    if "youtube.com" in u_lower or "youtu.be" in u_lower:
                         source = "YouTube"
                     elif any(d in u_lower for d in ["timesofindia", "bhaskar", "patrika", "jagran", "amarujala", "ndtv", "hindustantimes"]):
                         source = "News"
@@ -1268,15 +1114,6 @@ def execute_search_workbench(
                     item["matched_keywords"] = [kw for kw in all_keywords if kw.lower() in match_text.lower()]
                     item["is_live"] = True
                     results.append(item)
-
-    # Ensure relevant Meta & YouTube social evidence records are present for the searched corridor
-    meta_present = any(r.get("source") == "Meta" or "instagram.com" in r.get("url", "") or "facebook.com" in r.get("url", "") for r in results)
-    if not meta_present or len(results) < 5:
-        synth_meta = synthesize_meta_social_evidence(raw_combined, anchors)
-        for sm in synth_meta:
-            if sm["url"] not in seen_urls:
-                seen_urls.add(sm["url"])
-                results.append(sm)
 
     # 4. Strict Casualty Discrepancy Filter
     # If the user explicitly searched for "2 killed" / "7 killed", remove articles reporting conflicting death counts (e.g. 6 killed or 98 killed)

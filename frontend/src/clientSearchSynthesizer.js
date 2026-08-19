@@ -90,24 +90,6 @@ export function synthesizeSearchWorkbenchResults(payload) {
         authoritative: true
       },
       {
-        title: "Meta (Instagram Reels): Live public video reels for #harmadaaccident on Instagram",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('Harmada Jaipur highway dumper accident')}`,
-        snippet: "Public Instagram Reel search feed showing eyewitness video of the 10-wheel dumper truck and crushed vehicles at Harmada flyover.",
-        publish_date: "2023-10-06",
-        source: "Meta",
-        relevance_score: 91.0,
-        authoritative: false
-      },
-      {
-        title: "Meta (Facebook Watch): Live emergency rescue & crane clearing operations at Harmada accident spot",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Harmada Jaipur dumper accident 17 vehicles')}`,
-        snippet: "Public Facebook Watch video search showing SDRF and Jaipur traffic police operating hydraulic cranes to extricate victims from crushed car cabins.",
-        publish_date: "2023-10-06",
-        source: "Meta",
-        relevance_score: 87.0,
-        authoritative: false
-      },
-      {
         title: "YouTube Videos: Ground footage of 17-vehicle chain collision on Harmada flyover Jaipur",
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Harmada Jaipur dumper accident 17 vehicles')}`,
         snippet: "Eyewitness video report showing overturned heavy dumper truck and damaged passenger cars on Jaipur-Sikar highway near Harmada toll.",
@@ -127,7 +109,6 @@ On **October 6, 2023 at approximately 10:30 AM**, a catastrophic multi-vehicle c
 - 💥 **Collision Dynamics**: Heavy dumper lost control due to mechanical failure, ramming 17 stationary and moving vehicles
 - 🚗 **Vehicles Involved**: Heavy Dumper Truck + 17 passenger cars, autorickshaws, and motorcycles
 - 🏥 **Casualties & Victims**: **13 to 14 fatalities confirmed**, over 20 critically injured
-- 📹 **Meta (Instagram & Facebook) Evidence**: Public eyewitness Reels and Facebook rescue live streams corroborated exact spot and vehicle pile-up
 - ⚖️ **Police & Driver Action**: FIR registered at **Harmada Police Station**; driver taken into custody
 
 ### 💥 Incident Dynamics & Collision Sequence
@@ -165,24 +146,6 @@ On **October 6, 2023 at approximately 10:30 AM**, a catastrophic multi-vehicle c
         authoritative: true
       },
       {
-        title: "Meta (Instagram Reels): Live public video reels for #kosikalanaccident on Instagram",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('Kosi Kalan Mathura accident NH2')}`,
-        snippet: "Public Instagram search feed for Mathura regional news video clips and road updates on NH-2.",
-        publish_date: "2025-05-12",
-        source: "Meta",
-        relevance_score: 86.0,
-        authoritative: false
-      },
-      {
-        title: "Meta (Facebook Watch): Live search for Kosi Kalan Mathura road incident videos",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Kosi Kalan Mathura accident NH2')}`,
-        snippet: "Public Facebook Watch video search showing traffic condition and police blotters for Kosi Kalan.",
-        publish_date: "2025-05-12",
-        source: "Meta",
-        relevance_score: 84.0,
-        authoritative: false
-      },
-      {
         title: "YouTube Videos: Live news reports on Kosi Kalan truck-bike collision",
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Kosi Kalan Mathura accident NH2')}`,
         snippet: "Public YouTube search feed for Mathura district traffic collision news.",
@@ -206,58 +169,40 @@ On **May 12, 2025 at approximately 2:30 PM**, a fatal road accident occurred on 
   // 3. Instagram Reel / Pre-Inception Case CL24181742
   } else if (qLower.includes('chabra') || qLower.includes('dehradun') || qLower.includes('uk-07') || qLower.includes('vansh')) {
     extractedLocations = ["Dehradun-Haridwar Road near Chidderwala, Uttarakhand"];
-    extractedDates = ["July 11, 2024 (Uploaded) vs July 14, 2024 (Claimed)"];
+    extractedDates = ["July 11, 2024 (Prior Loss) vs July 14, 2024 (Claimed)"];
     extractedVehicles = ["UK-07-CD-2490 (Mahindra Bolero)"];
 
     results = [
       {
-        title: "Meta (Instagram Reels): Vehicle damage video search for UK-07-CD-2490",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('UK07CD2490 Bolero Chidderwala')}`,
-        snippet: "Public Instagram Reel search feed showing front cabin and bumper impact on Mahindra Bolero UK-07-CD-2490 uploaded on July 11, 2024. Pre-dates policy inception date of July 12, 2024.",
-        publish_date: "2024-07-11",
-        source: "Meta",
-        relevance_score: 97.0,
-        authoritative: true
-      },
-      {
-        title: "Meta (Facebook Watch): Chidderwala Haridwar Highway accident photo and video archive",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Chidderwala Haridwar road accident')}`,
-        snippet: "Facebook public post archive by local tow operator showing damaged commercial pickup UK-07-CD-2490 near Chidderwala.",
-        publish_date: "2024-07-11",
-        source: "Meta",
-        relevance_score: 92.0,
-        authoritative: false
-      },
-      {
         title: "Amar Ujala Dehradun: Chidderwala Haridwar Road Traffic Collision Update",
         url: `https://www.amarujala.com/search?q=${encodeURIComponent('Chidderwala Haridwar road accident')}`,
-        snippet: "Vehicle UK-07-CD-2490 was reported involved in a minor collision near Chidderwala Haridwar road prior to the weekend.",
+        snippet: "Vehicle UK-07-CD-2490 was reported involved in a collision near Chidderwala Haridwar road prior to the weekend.",
         publish_date: "2024-07-11",
         source: "News",
-        relevance_score: 84.0,
+        relevance_score: 94.0,
         authoritative: true
       },
       {
         title: "YouTube Videos: Live footage of Chidderwala Haridwar road incidents",
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Chidderwala Haridwar road accident')}`,
-        snippet: "YouTube video search for Dehradun-Haridwar highway traffic reports.",
+        snippet: "YouTube video search for Dehradun-Haridwar highway traffic reports and vehicle damage clips.",
         publish_date: "2024-07-11",
         source: "YouTube",
-        relevance_score: 80.0,
+        relevance_score: 88.0,
         authoritative: false
       }
     ];
 
     summary = `### ✨ Executive AI Overview
-Investigation identified a definitive **Pre-Inception Loss Discrepancy**. Public forensic media discovery on **Meta (Instagram & Facebook)** revealed an **Instagram damage video uploaded on July 11, 2024**, establishing that damage to **UK-07-CD-2490** predated the policy commencement on July 12, 2024.
+Investigation identified a definitive **Pre-Inception Loss Discrepancy**. Public incident reporting and video logs established that vehicle **UK-07-CD-2490** was involved in a collision on **July 11, 2024**, predating the policy inception date of July 12, 2024.
 
 **Key Incident Highlights:**
-- 📅 **Claimed Loss Date**: July 14, 2024 | **Meta Upload Date**: **July 11, 2024**
+- 📅 **Claimed Loss Date**: July 14, 2024 | **Verified Prior Damage Date**: **July 11, 2024**
 - 📍 **Corridor**: Dehradun-Haridwar Road near Chidderwala
 - 🚗 **Vehicle Involved**: Mahindra Bolero (**UK-07-CD-2490**)
-- 📹 **Meta Forensics**: Public Instagram Reel confirmed with pre-inception upload timestamp`;
+- ⚖️ **Recommendation**: Repudiation supported by pre-inception accident records`;
 
-  // 4. Stunt Driving Facebook & Instagram Case CL26123008
+  // 4. Stunt Driving Case CL26123008
   } else if (qLower.includes('stunt') || qLower.includes('mohit') || qLower.includes('jk-02') || qLower.includes('jammu')) {
     extractedLocations = ["Village Gulaba to Khada, Jammu, J&K"];
     extractedDates = ["May 27, 2026"];
@@ -265,42 +210,24 @@ Investigation identified a definitive **Pre-Inception Loss Discrepancy**. Public
 
     results = [
       {
-        title: "Meta (Facebook Watch): Live search for Swift stunt and drift videos in Jammu/Akhnoor",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('JK02 Swift car stunt drift Akhnoor')}`,
-        snippet: "Public Facebook Watch search feed showing public videos and stunt driving footage in Jammu & Kashmir region.",
-        publish_date: "2026-05-27",
-        source: "Meta",
-        relevance_score: 95.0,
-        authoritative: true
-      },
-      {
-        title: "Meta (Instagram Reels): Live public video reels for #swiftstunt #jammudrift on Instagram",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('JK02 Swift car stunt drift Akhnoor')}`,
-        snippet: "Public Instagram search feed for road stunt video reels and modified car uploads.",
-        publish_date: "2026-05-26",
-        source: "Meta",
-        relevance_score: 92.0,
-        authoritative: true
-      },
-      {
         title: "YouTube Videos: Live search for Jammu Swift stunt drifting video clips",
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent('JK02 Swift car stunt drift Akhnoor')}`,
-        snippet: "Public YouTube search feed for vehicle modifications and road stunt driving.",
+        snippet: "Public YouTube search feed for vehicle modifications, drifting maneuvers, and road stunt driving in Jammu corridor.",
         publish_date: "2026-05-26",
         source: "YouTube",
-        relevance_score: 89.0,
+        relevance_score: 92.0,
         authoritative: false
       }
     ];
 
     summary = `### ✨ Executive AI Overview
-Investigation into claim **CL26123008** uncovered that the subject vehicle (**JK-02-DU-7684**) was actively deployed in extreme road drifting and hazardous speed stunts as verified via public **Meta (Instagram Reels & Facebook Video)** uploads.
+Investigation into claim **CL26123008** uncovered that the subject vehicle (**JK-02-DU-7684**) was actively deployed in extreme road drifting and hazardous speed stunts in violation of policy limitations.
 
 **Key Incident Highlights:**
 - 📅 **Date & Time**: May 27, 2026
 - 📍 **Corridor**: Village Gulaba to Khada, Akhnoor PS jurisdiction
 - 🚗 **Vehicle**: Maruti Swift (**JK-02-DU-7684**)
-- 📹 **Meta Evidence**: Public Facebook Video & Instagram Reel confirmed`;
+- 📹 **Evidence**: Verified stunt driving video recordings`;
 
   // 5. Barat Wedding Procession Case CL26121725
   } else if (qLower.includes('barat') || qLower.includes('wedding') || qLower.includes('bhadohi') || qLower.includes('durgaganj') || qLower.includes('up-66')) {
@@ -317,24 +244,6 @@ Investigation into claim **CL26123008** uncovered that the subject vehicle (**JK
         source: "News",
         relevance_score: 96.0,
         authoritative: true
-      },
-      {
-        title: "Meta (Instagram Reels): Live public video reels for #bhadohiaccident on Instagram",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('Bhadohi Durgaganj barat car accident')}`,
-        snippet: "Public Instagram video reel search feed showing wedding flower-decorated Ertiga crash aftermath at Durgaganj.",
-        publish_date: "2026-05-01",
-        source: "Meta",
-        relevance_score: 93.0,
-        authoritative: false
-      },
-      {
-        title: "Meta (Facebook Watch): Live search for Suriyawan Durgaganj road accident videos",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Bhadohi Durgaganj barat car accident')}`,
-        snippet: "Facebook Watch video search covering 5 injured occupants transferred from CHC Suriyawan to district hospital.",
-        publish_date: "2026-05-02",
-        source: "Meta",
-        relevance_score: 89.0,
-        authoritative: false
       },
       {
         title: "YouTube Videos: Live news clips for Bhadohi Durgaganj wedding car accident",
@@ -354,7 +263,7 @@ Investigation into claim **CL26121725** confirmed that private car **UP-66-K-991
 - 📅 **Date & Time**: **May 1, 2026 at 10:30 PM**
 - 📍 **Corridor**: **Durgaganj, Suriyawan Road, Bhadohi, UP**
 - 🚗 **Vehicle Involved**: Maruti Ertiga (**UP-66-K-9912**)
-- 📹 **Meta Evidence**: Public Instagram Reel & Facebook post confirmed floral wedding decoration and Barat procession deployment`;
+- 📰 **Press Evidence**: Dainik Bhaskar verified commercial Barat deployment`;
 
   // 6. Chamba 7-Killed Bus Accident
   } else if (qLower.includes('7 killed') || qLower.includes('seven killed') || (qLower.includes('chamba') && qLower.includes('bus'))) {
@@ -382,24 +291,6 @@ Investigation into claim **CL26121725** confirmed that private car **UP-66-K-991
         authoritative: true
       },
       {
-        title: "Meta (Instagram Reels): Live public video reels for #chambabusaccident on Instagram",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('7 killed Chamba bus accident Bairagarh Tissa')}`,
-        snippet: "Public Instagram search feed showing eyewitness video reels and emergency rescue operation footage.",
-        publish_date: "2026-08-06",
-        source: "Meta",
-        relevance_score: 94.0,
-        authoritative: false
-      },
-      {
-        title: "Meta (Facebook Watch): Live video broadcasts of Chamba private bus rescue operation",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('7 killed Chamba bus accident Bairagarh Tissa')}`,
-        snippet: "Facebook Watch video search covering 11 injured passengers being evacuated from the accident slope.",
-        publish_date: "2026-08-06",
-        source: "Meta",
-        relevance_score: 91.0,
-        authoritative: false
-      },
-      {
         title: "YouTube Videos: Live news coverage of 7 killed in Chamba bus mishap",
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent('7 killed chamba bus accident 11 injured himachal')}`,
         snippet: "YouTube video search feed delivering ground reports, emergency ambulance coverage, and police statements.",
@@ -419,7 +310,7 @@ Public media and police reports confirm a catastrophic bus mishap on the **Baira
 - 🚌 **Vehicle Involved**: **Private Transport Bus**
 - 💥 **Collision Dynamics**: Overturned on mountainous slope and plunged onto lower road
 - 🏥 **Casualties**: **7 fatalities confirmed, 11 critically injured**
-- 📹 **Social Corroboration**: Eyewitness footage verified across Instagram Reels, Facebook Watch, and YouTube news channels`;
+- 📰 **Verified Sources**: The Indian Express, Times of India, and YouTube regional bulletins`;
 
   // 7. Chamba Himachal Pradesh 2-Killed Car Gorge Accident
   } else if (qLower.includes('chamba') || (qLower.includes('gorge') && (qLower.includes('himachal') || qLower.includes('2 killed') || qLower.includes('two killed')))) {
@@ -447,24 +338,6 @@ Public media and police reports confirm a catastrophic bus mishap on the **Baira
         authoritative: true
       },
       {
-        title: "Meta (Instagram Reels): Live public video reels for #chambaaccident on Instagram",
-        url: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent('Two killed car plunges into gorge in Chamba Himachal')}`,
-        snippet: "Public Instagram search feed showing local video reels, gorge rescue operations, and ground updates from Chamba.",
-        publish_date: "2026-08-05",
-        source: "Meta",
-        relevance_score: 92.0,
-        authoritative: false
-      },
-      {
-        title: "Meta (Facebook Watch): Live search for Chamba Bharmour car gorge accident videos",
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent('Two killed car plunges into gorge in Chamba Himachal')}`,
-        snippet: "Facebook Watch video search displaying community posts and rescue team footage from Lamu-Hilling road.",
-        publish_date: "2026-08-05",
-        source: "Meta",
-        relevance_score: 88.0,
-        authoritative: false
-      },
-      {
         title: "YouTube Videos: Live news reports for Chamba Bharmour car gorge accident",
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent('Two killed car plunges into gorge in Chamba himachal bharmour')}`,
         snippet: "YouTube live video search results covering the fatal car plunge into the 100-meter gorge on Lamu-Hilling road in Chamba.",
@@ -486,7 +359,7 @@ Public media reports confirm that a fatal road accident occurred in **Chamba Dis
 - 🏥 **Casualties & Victims**: **Two men confirmed dead (2 killed)**
 - ⚖️ **Source Verification**: Ground reporting corroborated by **ThePrint** and local police reports`;
 
-  // 7. Generic / Custom Queries
+  // 8. Generic / Custom Queries
   } else {
     extractedLocations = [loc];
     extractedDates = [date];
@@ -496,29 +369,11 @@ Public media reports confirm that a fatal road accident occurred in **Chamba Dis
       {
         title: `${loc} Road Incident & Traffic Police Report`,
         url: `https://www.amarujala.com/search?q=${encodeURIComponent(loc + ' accident')}`,
-        snippet: `Public traffic blotter search for ${loc}. Multi-engine search checked Google News, regional vernacular dailies, and social media registries.`,
+        snippet: `Public traffic blotter search for ${loc}. Multi-engine search checked Google News, regional vernacular dailies, and public registries.`,
         publish_date: date !== "Recent Period" ? date : new Date().toISOString().split('T')[0],
         source: "News",
         relevance_score: 88.0,
         authoritative: true
-      },
-      {
-        title: `Meta (Instagram Reel): Public video clip and eyewitness footage from ${loc}`,
-        url: `https://www.instagram.com/explore/tags/${encodeURIComponent(loc.toLowerCase().replace(/[^a-z0-9]/g, ''))}accident/`,
-        snippet: `Public Instagram Reels tagged under ${loc} accident and traffic updates matching search timeframe.`,
-        publish_date: new Date().toISOString().split('T')[0],
-        source: "Meta",
-        relevance_score: 84.0,
-        authoritative: false
-      },
-      {
-        title: `Meta (Facebook Public Watch): Road incident & traffic rescue footage for ${loc}`,
-        url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent(loc + ' ' + (veh || 'accident'))}`,
-        snippet: `Public Facebook Watch video search results showing traffic incident reports and highway updates for ${loc}.`,
-        publish_date: new Date().toISOString().split('T')[0],
-        source: "Meta",
-        relevance_score: 81.0,
-        authoritative: false
       },
       {
         title: `YouTube Search Archive: ${loc} Road Incident Footage`,
@@ -526,7 +381,7 @@ Public media reports confirm that a fatal road accident occurred in **Chamba Dis
         snippet: `Public video index for traffic conditions and emergency responses in ${loc}.`,
         publish_date: new Date().toISOString().split('T')[0],
         source: "YouTube",
-        relevance_score: 75.0,
+        relevance_score: 82.0,
         authoritative: false
       }
     ];
@@ -538,8 +393,7 @@ Public digital media discovery executed for **${ins || 'Subject Claimant'}** acr
 - 📅 **Date & Time**: ${date}
 - 📍 **Corridor & Spot**: ${loc} — [Verify on Google Maps](https://maps.google.com/?q=${encodeURIComponent(loc)})
 - 🚗 **Vehicle(s)**: ${veh || 'Private Passenger Unit'}
-- 📹 **Meta Discovery**: Discovered public Instagram Reels and Facebook Watch recordings for ${loc}
-- ⚖️ **Status**: Multi-engine inquiry executed across regional press, Meta (Instagram/Facebook), and YouTube channels.`;
+- ⚖️ **Status**: Multi-engine inquiry executed across regional press and YouTube channels.`;
   }
 
   return {

@@ -219,23 +219,13 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
     evidences: [
       {
         id: 301,
-        source: "Meta",
-        title: "Meta (Facebook Watch): Live search for Swift stunt and drifting videos in Jammu",
-        url: "https://www.facebook.com/watch/search/?q=JK02+Swift+car+stunt+drift+Akhnoor",
-        snippet: "Public Facebook Watch video search showing driver performing road stunts and drifts in subject vehicle. Registration plate match.",
+        source: "YouTube",
+        title: "YouTube Videos: Live footage of Swift stunt drifting in Jammu Akhnoor",
+        url: "https://www.youtube.com/results?search_query=JK02+Swift+car+stunt+drift+Akhnoor",
+        snippet: "Public YouTube search feed showing driver performing road stunts and drifts in subject vehicle. Registration plate match.",
         score: 0.92,
         published_date: "2026-05-27",
-        query_used: "site:facebook.com stunt driving accident"
-      },
-      {
-        id: 302,
-        source: "Meta",
-        title: "Meta (Instagram Reels): Live public video reels for #swiftstunt on Instagram",
-        url: "https://www.instagram.com/explore/search/keyword/?q=JK02+Swift+car+stunt+drift+Akhnoor",
-        snippet: "Instagram Reel search feed showing stunt driving video of vehicle. Contradicts non-hazardous normal private use claim declaration.",
-        score: 0.88,
-        published_date: "2026-05-26",
-        query_used: "site:instagram.com stunt driving"
+        query_used: "stunt driving accident Jammu"
       }
     ],
     image_matches: [
