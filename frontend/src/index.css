@@ -534,6 +534,12 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid #FBCFE8;
 }
 
+.tag-facebook {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
 .tag-epaper {
   background: #FFF1F2;
   color: #E11D48;

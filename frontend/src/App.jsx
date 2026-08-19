@@ -397,6 +397,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
       veh ? `${veh} accident news` : '',
       drv ? `${drv} accident` : '',
       drv ? `site:instagram.com "${drv}" accident` : '',
+      drv ? `site:facebook.com "${drv}" accident` : '',
       veh ? `site:youtube.com "${veh}" accident` : '',
       `${loc} सड़क दुर्घटना`,
       `${loc} बारात हादसा`

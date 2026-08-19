@@ -7,7 +7,7 @@ os.makedirs(DATABASE_DIR, exist_ok=True)
 DATABASE_URL = f"sqlite:///{os.path.join(DATABASE_DIR, 'claims.db')}"
 
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

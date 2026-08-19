@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from sqlalchemy.orm import Session
 
-from backend.database import engine, Base, get_db
+from backend.database import engine, Base, get_db, SessionLocal
 from backend.models import Case, Evidence, ImageMatch, AuditLog
 import backend.schemas as schemas
 import backend.extractor as extractor
@@ -103,7 +103,8 @@ def save_facts_to_case_model(db_case: Case, facts: dict, confidence: dict = None
     if confidence:
         db_case.confidence_scores = json.dumps(confidence)
 
-def run_evidence_search_pipeline(case_id: int, db_session: Session, custom_queries: Optional[List[str]] = None):
+def run_evidence_search_pipeline(case_id: int, custom_queries: Optional[List[str]] = None):
+    db_session = SessionLocal()
     try:
         case = db_session.query(Case).filter(Case.id == case_id).first()
         if not case:
@@ -272,6 +273,8 @@ def run_evidence_search_pipeline(case_id: int, db_session: Session, custom_queri
                 db_session.commit()
         except Exception as db_ex:
             logger.error(f"Failed to save error status: {db_ex}")
+    finally:
+        db_session.close()
 
 # API ROUTES
 
@@ -808,7 +811,7 @@ def confirm_facts(
     ))
     db.commit()
     
-    background_tasks.add_task(run_evidence_search_pipeline, case.id, db)
+    background_tasks.add_task(run_evidence_search_pipeline, case.id)
     return case
 
 @app.post("/api/cases/{claim_id}/custom-search")
@@ -833,7 +836,7 @@ def run_investigator_custom_search(
     ))
     db.commit()
     
-    background_tasks.add_task(run_evidence_search_pipeline, case.id, db, req.queries)
+    background_tasks.add_task(run_evidence_search_pipeline, case.id, req.queries)
     return {
         "success": True,
         "message": f"Targeted search initiated with {len(req.queries)} queries for claim {claim_id}.",
@@ -864,7 +867,7 @@ def run_evidence_finder_endpoint(
     ))
     db.commit()
     
-    background_tasks.add_task(run_evidence_search_pipeline, case.id, db)
+    background_tasks.add_task(run_evidence_search_pipeline, case.id)
     return {
         "success": True,
         "message": f"Evidence finder started for claim {case.claim_id}.",

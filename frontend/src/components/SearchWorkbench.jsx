@@ -187,8 +187,9 @@ export default function SearchWorkbench() {
   const filteredResults = response?.results?.filter(r => {
     if (activeCategory === 'ALL') return true;
     if (activeCategory === 'News') return r.source === 'News' || r.source === 'Google News';
-    if (activeCategory === 'Instagram') return r.source === 'Instagram' || r.url.includes('instagram.com');
-    if (activeCategory === 'YouTube') return r.source === 'YouTube' || r.url.includes('youtube.com');
+    if (activeCategory === 'Instagram') return r.source === 'Instagram' || (r.url && r.url.includes('instagram.com'));
+    if (activeCategory === 'Facebook') return r.source === 'Facebook' || (r.url && (r.url.includes('facebook.com') || r.url.includes('fb.watch')));
+    if (activeCategory === 'YouTube') return r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')));
     return r.source === activeCategory;
   }) || [];
 
@@ -574,7 +575,7 @@ export default function SearchWorkbench() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Category Filter Chips */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['ALL', 'News', 'Web', 'Instagram', 'YouTube'].map((cat) => (
+                {['ALL', 'News', 'Web', 'Instagram', 'Facebook', 'YouTube'].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
@@ -626,8 +627,9 @@ export default function SearchWorkbench() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span className="badge" style={{ 
-                              background: item.source === 'Instagram' ? '#FDF2F8' : item.source === 'YouTube' ? '#FEF2F2' : '#EFF6FF', 
-                              color: item.source === 'Instagram' ? '#DB2777' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
+                              background: item.source === 'Instagram' ? '#FDF2F8' : item.source === 'Facebook' ? '#EFF6FF' : item.source === 'YouTube' ? '#FEF2F2' : '#F8FAFC', 
+                              color: item.source === 'Instagram' ? '#DB2777' : item.source === 'Facebook' ? '#1D4ED8' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
+                              border: item.source === 'Instagram' ? '1px solid #FBCFE8' : item.source === 'Facebook' ? '1px solid #BFDBFE' : item.source === 'YouTube' ? '1px solid #FECACA' : '1px solid #E2E8F0',
                               fontSize: '11px',
                               fontWeight: '800'
                             }}>
