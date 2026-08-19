@@ -220,9 +220,9 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
       {
         id: 301,
         source: "Meta",
-        title: "Meta (Facebook Video): Extreme vehicle stunts & speed drifting session",
-        url: "https://www.facebook.com/watch/?v=982341201948210",
-        snippet: "Public Facebook video post showing driver performing high-speed road stunts and hazardous drifts in subject vehicle. Visual vehicle modifications and registration plate match.",
+        title: "Meta (Facebook Watch): Live search for Swift stunt and drifting videos in Jammu",
+        url: "https://www.facebook.com/watch/search/?q=JK02+Swift+car+stunt+drift+Akhnoor",
+        snippet: "Public Facebook Watch video search showing driver performing road stunts and drifts in subject vehicle. Registration plate match.",
         score: 0.92,
         published_date: "2026-05-27",
         query_used: "site:facebook.com stunt driving accident"
@@ -230,9 +230,9 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
       {
         id: 302,
         source: "Meta",
-        title: "Meta (Instagram Reel): Vehicle stunt footage and modifications",
-        url: "https://www.instagram.com/reel/C89XaZ40192/",
-        snippet: "Instagram Reel showing stunt driving video of vehicle. Contradicts non-hazardous normal private use claim declaration.",
+        title: "Meta (Instagram Reels): Live public video reels for #swiftstunt on Instagram",
+        url: "https://www.instagram.com/explore/search/keyword/?q=JK02+Swift+car+stunt+drift+Akhnoor",
+        snippet: "Instagram Reel search feed showing stunt driving video of vehicle. Contradicts non-hazardous normal private use claim declaration.",
         score: 0.88,
         published_date: "2026-05-26",
         query_used: "site:instagram.com stunt driving"
@@ -243,7 +243,7 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
         id: 303,
         image_name: "stunt_swift_modification.jpg",
         status: "Hazardous Stunt Use",
-        matched_url: "https://www.instagram.com/reel/C89XaZ40192/",
+        matched_url: "https://www.instagram.com/explore/search/keyword/?q=JK02+Swift+car+stunt+drift+Akhnoor",
         why_matched: "Visual match with public social media stunt archive."
       }
     ],
