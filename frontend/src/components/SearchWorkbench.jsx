@@ -193,15 +193,25 @@ export default function SearchWorkbench() {
     a.click();
   };
 
-  // Filtered results by active category
+  // Filtered results by active category (Unifies Instagram & Facebook into Meta)
   const filteredResults = response?.results?.filter(r => {
     if (activeCategory === 'ALL') return true;
-    if (activeCategory === 'News') return r.source === 'News' || r.source === 'Google News';
-    if (activeCategory === 'Instagram') return r.source === 'Instagram' || (r.url && r.url.includes('instagram.com'));
-    if (activeCategory === 'Facebook') return r.source === 'Facebook' || (r.url && (r.url.includes('facebook.com') || r.url.includes('fb.watch')));
+    if (activeCategory === 'News') return r.source === 'News' || r.source === 'Google News' || r.authoritative;
+    if (activeCategory === 'Web') return r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'));
+    if (activeCategory === 'Meta') return r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')));
     if (activeCategory === 'YouTube') return r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')));
     return r.source === activeCategory;
   }) || [];
+
+  const getCategoryCount = (cat) => {
+    if (!response?.results) return 0;
+    if (cat === 'ALL') return response.results.length;
+    if (cat === 'News') return response.results.filter(r => r.source === 'News' || r.source === 'Google News' || r.authoritative).length;
+    if (cat === 'Web') return response.results.filter(r => r.source === 'Web' || (!r.source && !r.url?.includes('instagram') && !r.url?.includes('facebook') && !r.url?.includes('youtube'))).length;
+    if (cat === 'Meta') return response.results.filter(r => r.source === 'Meta' || r.source === 'Instagram' || r.source === 'Facebook' || (r.url && (r.url.includes('instagram.com') || r.url.includes('facebook.com') || r.url.includes('fb.watch')))).length;
+    if (cat === 'YouTube') return response.results.filter(r => r.source === 'YouTube' || (r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')))).length;
+    return 0;
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -585,25 +595,29 @@ export default function SearchWorkbench() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Category Filter Chips */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['ALL', 'News', 'Web', 'Instagram', 'Facebook', 'YouTube'].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: activeCategory === cat ? 'var(--usgi-red)' : '#E2E8F0',
-                      color: activeCategory === cat ? '#FFFFFF' : '#475569',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    {cat === 'ALL' ? `All Sources (${response.results?.length || 0})` : cat}
-                  </button>
-                ))}
+                {['ALL', 'News', 'Web', 'Meta', 'YouTube'].map((cat) => {
+                  const count = getCategoryCount(cat);
+                  const label = cat === 'ALL' ? `All Sources (${count})` : `${cat} (${count})`;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategory(cat)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: activeCategory === cat ? 'var(--usgi-red)' : '#E2E8F0',
+                        color: activeCategory === cat ? '#FFFFFF' : '#475569',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
 
               {filteredResults.length === 0 ? (
@@ -621,6 +635,7 @@ export default function SearchWorkbench() {
                   {filteredResults.map((item, idx) => {
                     const isExpanded = expandedArticles[idx];
                     const isCopied = copiedUrl === item.url;
+                    const isMeta = item.source === 'Meta' || item.source === 'Instagram' || item.source === 'Facebook' || item.url?.includes('instagram.com') || item.url?.includes('facebook.com') || item.url?.includes('fb.watch');
 
                     return (
                       <div key={idx} className="card" style={{ 
@@ -637,13 +652,13 @@ export default function SearchWorkbench() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span className="badge" style={{ 
-                              background: item.source === 'Instagram' ? '#FDF2F8' : item.source === 'Facebook' ? '#EFF6FF' : item.source === 'YouTube' ? '#FEF2F2' : '#F8FAFC', 
-                              color: item.source === 'Instagram' ? '#DB2777' : item.source === 'Facebook' ? '#1D4ED8' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
-                              border: item.source === 'Instagram' ? '1px solid #FBCFE8' : item.source === 'Facebook' ? '1px solid #BFDBFE' : item.source === 'YouTube' ? '1px solid #FECACA' : '1px solid #E2E8F0',
+                              background: isMeta ? '#FDF2F8' : item.source === 'YouTube' ? '#FEF2F2' : '#F8FAFC', 
+                              color: isMeta ? '#DB2777' : item.source === 'YouTube' ? '#DC2626' : '#2563EB',
+                              border: isMeta ? '1px solid #FBCFE8' : item.source === 'YouTube' ? '1px solid #FECACA' : '1px solid #E2E8F0',
                               fontSize: '11px',
                               fontWeight: '800'
                             }}>
-                              {item.source}
+                              {isMeta ? 'Meta' : item.source}
                             </span>
 
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>

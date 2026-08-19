@@ -349,10 +349,8 @@ def execute_single_query(query: str) -> List[Dict[str, Any]]:
                 if url and is_incident_relevant(title, body, url) and verify_live_url(url):
                     source = "Web"
                     url_lower = url.lower()
-                    if "facebook.com" in url_lower or "fb.watch" in url_lower:
-                        source = "Facebook"
-                    elif "instagram.com" in url_lower:
-                        source = "Instagram"
+                    if "facebook.com" in url_lower or "fb.watch" in url_lower or "instagram.com" in url_lower:
+                        source = "Meta"
                     elif "youtube.com" in url_lower or "youtu.be" in url_lower:
                         source = "YouTube"
                     elif any(d in url_lower for d in ["jagran", "amarujala", "bhaskar", "timesofindia", "ndtv", "news18", "patrika"]):

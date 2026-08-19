@@ -133,8 +133,8 @@ Investigation into claim **CL24181742** uncovered a critical **Pre-Inception Los
     evidences: [
       {
         id: 101,
-        source: "Instagram",
-        title: "Instagram Post by @_Its_vansh_2490: Vehicle damage reel uploaded on 11-07-2024",
+        source: "Meta",
+        title: "Meta (Instagram Post) by @_Its_vansh_2490: Vehicle damage reel uploaded on 11-07-2024",
         url: "https://www.instagram.com/p/C9U1x2490/",
         snippet: "Instagram Reel uploaded on July 11, 2024 showing front cabin damage of vehicle UK-07-CD-2490. Upload timestamp (11.07.2024) is prior to the policy commencement date of 12.07.2024.",
         score: 0.95,
@@ -219,8 +219,8 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
     evidences: [
       {
         id: 301,
-        source: "Facebook",
-        title: "Facebook Video Post: Extreme vehicle stunts & speed drifting session",
+        source: "Meta",
+        title: "Meta (Facebook Video): Extreme vehicle stunts & speed drifting session",
         url: "https://www.facebook.com/watch/?v=982341201948210",
         snippet: "Public Facebook video post showing driver performing high-speed road stunts and hazardous drifts in subject vehicle. Visual vehicle modifications and registration plate match.",
         score: 0.92,
@@ -229,8 +229,8 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
       },
       {
         id: 302,
-        source: "Instagram",
-        title: "Instagram Profile Reel: Vehicle stunt footage and modifications",
+        source: "Meta",
+        title: "Meta (Instagram Reel): Vehicle stunt footage and modifications",
         url: "https://www.instagram.com/reel/C89XaZ40192/",
         snippet: "Instagram Reel showing stunt driving video of vehicle. Contradicts non-hazardous normal private use claim declaration.",
         score: 0.88,
