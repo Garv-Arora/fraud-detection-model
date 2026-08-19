@@ -734,7 +734,7 @@ def extract_and_prioritize_anchors(raw_text: str) -> Dict[str, List[str]]:
     - Specific Locations, Flyovers & Highway Corridors
     - Dates & Years
     - Specific Vehicles (Bolero, Swift, Dumper, Bike)
-    - Incident Modifiers (Stunt, Barat, Fatal, Collision)
+    - Incident Modifiers (Stunt, Barat, Fatal, Collision, 2 killed, etc.)
     """
     anchors = {
         "vehicles": [],
@@ -742,7 +742,8 @@ def extract_and_prioritize_anchors(raw_text: str) -> Dict[str, List[str]]:
         "locations": [],
         "dates": [],
         "vehicle_types": [],
-        "keywords": []
+        "keywords": [],
+        "query_tokens": []
     }
     if not raw_text:
         return anchors
@@ -756,19 +757,25 @@ def extract_and_prioritize_anchors(raw_text: str) -> Dict[str, List[str]]:
             anchors["vehicles"].append(formatted)
             anchors["vehicles"].append(v_clean)
 
-    # 2. Key Locations / Cities / Highways
+    # 2. Dynamic Location Extraction (Capitalized words, words before district/city/road, and common towns/states)
+    dist_matches = re.findall(r'\b([A-Za-z]+)\s+(?:district|dist|city|town|road|highway|flyover|gorge)\b', raw_text, re.IGNORECASE)
+    for dm in dist_matches:
+        if dm.lower() not in ['road', 'highway', 'near', 'in', 'at', 'the']:
+            anchors["locations"].append(dm.capitalize())
+
     loc_keywords = [
         'Harmada', 'Jaipur', 'Sikar', 'Kosi Kalan', 'Mathura', 'Dehradun', 'Haridwar',
         'Chidderwala', 'Jammu', 'Akhnoor', 'Bhadohi', 'Durgaganj', 'Suriyawan', 'Gorakhpur',
         'NH-2', 'NH-8', 'NH-24', 'NH-48', 'Expressway', 'Flyover', 'Bypass', 'Kota', 'Lonavala', 'Pune',
-        'Delhi', 'Mumbai', 'Lucknow', 'Kanpur', 'Agra', 'Varanasi', 'Noida', 'Gurgaon', 'Faridabad'
+        'Delhi', 'Mumbai', 'Lucknow', 'Kanpur', 'Agra', 'Varanasi', 'Noida', 'Gurgaon', 'Faridabad',
+        'Chamba', 'Himachal', 'Shimla', 'Mandi', 'Kangra', 'Kullu', 'Solan', 'Una', 'Hamirpur', 'Bilaspur'
     ]
     for loc in loc_keywords:
         if re.search(r'\b' + re.escape(loc) + r'\b', raw_text, re.IGNORECASE):
             anchors["locations"].append(loc)
 
-    # 3. Vehicle Models
-    model_keywords = ['Bolero', 'Swift', 'Ertiga', 'Dumper', 'Truck', 'Trailer', 'Activa', 'CB Shine', 'Honda', 'Creta', 'Innova', 'Bike', 'Scooter', 'Bus', 'Tractor']
+    # 3. Vehicle Models & Types
+    model_keywords = ['Bolero', 'Swift', 'Ertiga', 'Dumper', 'Truck', 'Trailer', 'Activa', 'CB Shine', 'Honda', 'Creta', 'Innova', 'Bike', 'Scooter', 'Bus', 'Tractor', 'Car', 'Van', 'Auto']
     for m in model_keywords:
         if re.search(r'\b' + re.escape(m) + r'\b', raw_text, re.IGNORECASE):
             anchors["vehicle_types"].append(m)
@@ -778,11 +785,19 @@ def extract_and_prioritize_anchors(raw_text: str) -> Dict[str, List[str]]:
     for d in date_matches:
         anchors["dates"].append(d)
 
-    # 5. Incident terms
-    incident_terms = ['Barat', 'Wedding', 'Stunt', 'Drift', 'Pre-inception', 'Fatal', 'Overturned', 'Head-on', 'Rear-end', 'Collision', 'Crush', 'Pile-up']
+    # 5. Incident terms & Casualties
+    incident_terms = ['Barat', 'Wedding', 'Stunt', 'Drift', 'Pre-inception', 'Fatal', 'Overturned', 'Head-on', 'Rear-end', 'Collision', 'Crush', 'Pile-up', 'Gorge', 'Plunge', 'Fall', 'Killed', 'Dead', 'Injured', 'Death']
     for term in incident_terms:
         if re.search(r'\b' + re.escape(term) + r'\b', raw_text, re.IGNORECASE):
             anchors["keywords"].append(term)
+
+    # Extract specific casualty phrases (e.g. 2 killed, 3 dead)
+    cas_phrases = re.findall(r'\b(\d+\s+(?:killed|dead|fatalities|injured|casualties))\b', raw_text, re.IGNORECASE)
+    anchors["keywords"].extend(cas_phrases)
+
+    # Extract all significant words as tokens
+    words = re.findall(r'\b[a-z0-9]{2,}\b', raw_text.lower())
+    anchors["query_tokens"] = [w for w in words if w not in ['the', 'and', 'for', 'with', 'district', 'from', 'into', 'after', 'near']]
 
     # Clean duplicates
     for k in anchors:
@@ -795,30 +810,41 @@ def score_workbench_relevance(text: str, anchors: Dict[str, List[str]], all_keyw
     if not text:
         return 50.0
     text_lower = text.lower()
-    score = 40.0
 
-    # 1. Exact Vehicle Match (Immediate 95%+)
+    # 1. Exact Vehicle Match (Immediate 96%+)
     for v in anchors.get("vehicles", []):
         if v.lower() in text_lower or clean_vehicle_number(v).lower() in text_lower:
             return 96.0
 
-    # 2. Location + Accident / Vehicle Type (80-92%)
-    has_loc = any(loc.lower() in text_lower for loc in anchors.get("locations", []))
-    has_model = any(m.lower() in text_lower for m in anchors.get("vehicle_types", []))
-    has_accident = any(w in text_lower for w in ['accident', 'crash', 'collision', 'हादसा', 'दुर्घटना', 'रौंदा', 'टक्कर'])
-    has_meta = any(m in text_lower for m in ['instagram', 'facebook', 'reel', 'video', 'watch'])
+    # 2. Token overlap with user query tokens
+    tokens = anchors.get("query_tokens", [])
+    if not tokens:
+        tokens = [w.lower() for w in all_keywords if len(w) > 2]
 
-    if has_loc and has_model and has_accident:
-        score = 92.0
+    num_map = {'2': 'two', '3': 'three', '4': 'four', '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '1': 'one', 'two': '2', 'three': '3', 'four': '4'}
+    expanded_tokens = list(tokens)
+    for t in tokens:
+        if t in num_map:
+            expanded_tokens.append(num_map[t])
+
+    matched_count = 0
+    for tok in set(expanded_tokens):
+        if tok in text_lower:
+            matched_count += 1
+
+    ratio = (matched_count / max(len(tokens), 1))
+
+    # Bonus for critical match combinations
+    has_loc = any(loc.lower() in text_lower for loc in anchors.get("locations", []))
+    has_accident = any(w in text_lower for w in ['accident', 'crash', 'collision', 'plunges', 'gorge', 'killed', 'dead', 'हादसा', 'दुर्घटना'])
+
+    score = 50.0 + (ratio * 40.0)
+    if has_loc and has_accident and ratio >= 0.5:
+        score = max(score, 92.0)
     elif has_loc and has_accident:
-        score = 86.0
-    elif has_loc and has_meta:
-        score = 84.0
-    elif has_accident:
-        score = 75.0
-    else:
-        matches = sum(1 for kw in all_keywords if kw.lower() in text_lower)
-        score = min(max(round((matches / max(len(all_keywords), 1)) * 100.0, 1), 60.0), 90.0)
+        score = max(score, 82.0)
+    elif ratio >= 0.6:
+        score = max(score, 85.0)
 
     return min(max(round(score, 1), 50.0), 99.0)
 
@@ -861,7 +887,7 @@ def execute_search_workbench(
     all_keywords.extend(anchors["vehicle_types"])
     all_keywords.extend(anchors["keywords"])
     if query:
-        all_keywords.extend([w.strip() for w in query.split() if len(w.strip()) > 3])
+        all_keywords.extend([w.strip() for w in query.split() if len(w.strip()) > 2])
     all_keywords = list(dict.fromkeys(all_keywords))
 
     primary_loc = anchors["locations"][0] if anchors["locations"] else ""
@@ -870,8 +896,25 @@ def execute_search_workbench(
     primary_model = anchors["vehicle_types"][0] if anchors["vehicle_types"] else ""
     primary_kw = anchors["keywords"][0] if anchors["keywords"] else ""
 
-    # Generate Prioritized Multi-Engine Queries (2-4 words per query)
+    # Generate Prioritized Multi-Engine Queries
     queries = []
+
+    # Priority 0: Verbatim query and clean core terms
+    if query and query.strip():
+        q_strip = query.strip()
+        queries.append(q_strip)
+        # Without future dates / month
+        q_no_date = re.sub(r'\b(202\d|\d{1,2}(?:st|nd|rd|th)?|august|aug|july|jul|september|sep|october|oct)\b', '', q_strip, flags=re.IGNORECASE).strip()
+        if q_no_date and q_no_date != q_strip:
+            queries.append(q_no_date)
+        # Number translation (e.g. '2 killed' -> 'two killed')
+        if '2 killed' in q_strip.lower():
+            queries.append(re.sub(r'\b2\s+killed\b', 'two killed', q_strip, flags=re.IGNORECASE))
+            if primary_loc:
+                queries.append(f"{primary_loc} 2 killed")
+                queries.append(f"two killed {primary_loc}")
+        elif '3 killed' in q_strip.lower():
+            queries.append(re.sub(r'\b3\s+killed\b', 'three killed', q_strip, flags=re.IGNORECASE))
 
     if primary_veh and primary_loc:
         queries.append(f"{primary_veh} {primary_loc} accident")
@@ -888,21 +931,17 @@ def execute_search_workbench(
         queries.append(f"site:facebook.com {primary_loc} {primary_model}")
         queries.append(f"site:instagram.com {primary_loc} {primary_model}")
         queries.append(f"site:youtube.com {primary_loc} {primary_model} accident")
-    elif primary_loc and secondary_loc:
-        queries.append(f"{primary_loc} {secondary_loc} road accident")
-        queries.append(f"{primary_loc} {secondary_loc} सड़क हादसा")
-        queries.append(f"site:facebook.com {primary_loc} {secondary_loc} accident")
+    elif primary_loc and primary_kw:
+        queries.append(f"{primary_loc} {primary_kw} accident")
+        queries.append(f"{primary_loc} {primary_kw}")
+        queries.append(f"site:facebook.com {primary_loc} {primary_kw}")
+        queries.append(f"site:instagram.com {primary_loc} {primary_kw}")
     elif primary_loc:
         queries.append(f"{primary_loc} road accident")
         queries.append(f"{primary_loc} सड़क हादसा")
         queries.append(f"site:facebook.com {primary_loc} accident")
         queries.append(f"site:instagram.com {primary_loc} accident")
         queries.append(f"site:youtube.com {primary_loc} accident")
-
-    if primary_kw and primary_loc:
-        queries.append(f"{primary_loc} {primary_kw} accident")
-        queries.append(f"site:facebook.com {primary_loc} {primary_kw}")
-        queries.append(f"site:instagram.com {primary_loc} {primary_kw}")
 
     # Fallback to direct query terms if no anchors found
     if not queries and query:
@@ -912,7 +951,7 @@ def execute_search_workbench(
             queries.append(f"site:facebook.com {' '.join(words[:3])}")
             queries.append(f"site:instagram.com {' '.join(words[:3])}")
 
-    queries = list(dict.fromkeys([q for q in queries if q]))[:12]
+    queries = list(dict.fromkeys([q for q in queries if q]))[:15]
 
     results = []
     seen_urls = set()
