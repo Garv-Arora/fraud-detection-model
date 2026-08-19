@@ -229,14 +229,8 @@ ENTERTAINMENT_BLACKLIST = [
 ]
 
 def is_incident_relevant(title: str, snippet: str, url: str) -> bool:
-    """Strictly verifies that a search result is related to road accidents, police FIRs, or news coverage."""
+    """Strictly verifies that a search result is related to road accidents, vehicle damage, police FIRs, or stunt/fraud media."""
     text = f"{title} {snippet} {url}".lower()
-    u_lower = url.lower()
-    
-    # Direct pass for social media posts matching claim queries if not entertainment spam
-    if "instagram.com" in u_lower or "facebook.com" in u_lower or "fb.watch" in u_lower:
-        if not any(b in text for b in ENTERTAINMENT_BLACKLIST):
-            return True
 
     # 1. Immediate rejection if entertainment/music/film keywords are present
     if any(b in text for b in ENTERTAINMENT_BLACKLIST):
@@ -248,7 +242,7 @@ def is_incident_relevant(title: str, snippet: str, url: str) -> bool:
         'durghatna', 'sadak', 'maut', 'kosi', 'mathura', 'kota', 'overturned', 'jagran',
         'amarujala', 'bhaskar', 'timesofindia', 'ndtv', 'news18', 'hindustantimes', 'patrika',
         'barat', 'wedding', 'stunt', 'shrivastava', 'chhabra', 'naushad', 'pal', 'dumper',
-        'trailer', 'loss', 'damage', 'innova', 'incident', 'reels', 'post'
+        'trailer', 'loss', 'damage', 'innova', 'incident', 'speeding', 'drifting', 'wreck', 'total loss'
     ]
     # Explicit blacklist of useless non-incident domains/pages
     blacklist = [
@@ -393,7 +387,7 @@ def is_case_specific_match(result: Dict[str, Any], facts: Dict[str, Any]) -> boo
     if not is_incident_relevant(title, snippet, url):
         return False
         
-    # 1. Exact Vehicle Registration Match
+    # 1. Exact Vehicle Registration Match (Minimum 6 characters)
     vehicles = facts.get("vehicle_numbers", [])
     valid_vehicles = [clean_vehicle_number(v) for v in vehicles if clean_vehicle_number(v)]
     for v in valid_vehicles:
@@ -403,7 +397,8 @@ def is_case_specific_match(result: Dict[str, Any], facts: Dict[str, Any]) -> boo
             if p_clean and len(p_clean) >= 6 and p_clean in clean_text:
                 return True
                 
-    # 2. Party / Driver / Insured Name Match
+    # 2. Party / Driver / Insured Distinct Name Match
+    GENERIC_NAMES = {"insured name n/a", "driver n/a", "insured", "driver", "n/a", "unknown", "none", "customer", "party", "self", "insured name", "driver name", "applicant", "policyholder", "claimant"}
     parties = []
     if facts.get("insured_name"):
         parties.append(facts.get("insured_name"))
@@ -414,24 +409,26 @@ def is_case_specific_match(result: Dict[str, Any], facts: Dict[str, Any]) -> boo
         
     for p in parties:
         p_name = str(p).split("(")[0].strip().lower()
-        if not p_name or p_name in ["n/a", "unknown", "none"]:
+        if not p_name or p_name in GENERIC_NAMES or len(p_name) < 4:
             continue
             
-        tokens = [t for t in p_name.split() if len(t) > 2]
+        tokens = [t for t in p_name.split() if len(t) > 2 and t not in GENERIC_NAMES]
         if len(tokens) >= 2:
-            # Full multi-word name match (e.g. "Lalit Parakh" or "Manoj Kumar Chhajer")
+            # Full multi-word distinct name match (e.g. "Lalit Parakh", "Manoj Kumar", "Mohit Sharma")
             if p_name in text:
                 return True
-        else:
-            # Single name: must match name AND loss location / district
+            if sum(1 for t in tokens if t in text) >= 2:
+                return True
+        elif len(tokens) == 1:
+            # Single distinct name: must match name AND loss location / district
             loc = (facts.get("accident_location_city") or facts.get("district_state") or facts.get("accident_location_region") or "").lower()
             loc_clean = loc.split(",")[0].strip()
-            if p_name in text and loc_clean and loc_clean in text:
+            if tokens[0] in text and loc_clean and len(loc_clean) >= 3 and loc_clean in text:
                 return True
 
     # 3. FIR / Claim ID Match
     claim_id = str(facts.get("claim_id", "")).lower()
-    if claim_id and len(claim_id) >= 6 and claim_id in text:
+    if claim_id and len(claim_id) >= 6 and claim_id not in ["cl-unknown", "pol-unknown", "excel-claim-01"] and claim_id in text:
         return True
 
     return False

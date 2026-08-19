@@ -173,7 +173,9 @@ def run_evidence_search_pipeline(case_id: int, custom_queries: Optional[List[str
             score_res = scorer.score_evidence_link_detailed(facts, ev)
             ev["score"] = score_res["score"]
             ev["breakdown"] = score_res["breakdown"]
-            scored_evidences.append(ev)
+            # STRICT FILTER: Only accept evidence that genuinely relates to the case with score >= 0.40
+            if ev["score"] >= 0.40:
+                scored_evidences.append(ev)
             
         # Deduplicate & rank top 10
         ranked_evidences = sorted(scored_evidences, key=lambda x: x["score"], reverse=True)[:10]

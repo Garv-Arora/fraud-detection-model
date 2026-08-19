@@ -442,16 +442,17 @@ def generate_ai_summary(facts: Dict[str, Any], evidences: List[Dict[str, Any]], 
     gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
     
     # Filter valid discovered evidence items (support score and relevance_score)
+    # Filter only genuine matching evidence items (score >= 0.40)
     valid_evidences = []
     for ev in evidences:
         sc = ev.get("score")
         if sc is None:
-            sc = ev.get("relevance_score", 50.0) / 100.0
-        if sc >= 0.20 or ev.get("relevance_score", 0) >= 20.0 or len(evidences) <= 6:
+            sc = (ev.get("relevance_score") or 50.0) / 100.0
+        if sc >= 0.40:
             valid_evidences.append(ev)
 
     # Sort by relevance/score descending
-    valid_evidences.sort(key=lambda x: x.get("score") if x.get("score") is not None else (x.get("relevance_score", 0) / 100.0), reverse=True)
+    valid_evidences.sort(key=lambda x: x.get("score") if x.get("score") is not None else ((x.get("relevance_score") or 0) / 100.0), reverse=True)
     top_evidences = valid_evidences[:10]
 
     loc_str = f"{facts.get('spot_of_accident') or facts.get('loss_location') or facts.get('accident_location_city') or ''}"
