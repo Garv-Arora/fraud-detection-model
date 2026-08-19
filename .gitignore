@@ -31,3 +31,6 @@ dist/
 build/
 .gradle/
 local.properties
+
+# Local Netlify folder
+.netlify
