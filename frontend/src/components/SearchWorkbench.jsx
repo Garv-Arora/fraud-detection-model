@@ -65,6 +65,52 @@ const PRESET_TEST_CASES = [
   }
 ];
 
+const NUM_WORD_MAP = {
+  '1': 1, 'one': 1, 'एक': 1,
+  '2': 2, 'two': 2, 'दो': 2,
+  '3': 3, 'three': 3, 'तीन': 3,
+  '4': 4, 'four': 4, 'चार': 4,
+  '5': 5, 'five': 5, 'पांच': 5,
+  '6': 6, 'six': 6, 'छह': 6,
+  '7': 7, 'seven': 7, 'सात': 7,
+  '8': 8, 'eight': 8, 'आठ': 8,
+  '9': 9, 'nine': 9, 'नौ': 9,
+  '10': 10, 'ten': 10, 'दस': 10,
+  '11': 11, 'eleven': 11,
+  '12': 12, 'twelve': 12,
+  '13': 13, 'thirteen': 13,
+  '14': 14, 'fourteen': 14
+};
+
+function extractTargetCasualties(queryText) {
+  if (!queryText) return null;
+  const m = queryText.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|एक|दो|तीन|चार|पांच|छह|सात|आठ|नौ|दस|\d+)\s*(?:killed|dead|fatalities|casualties|deaths|died|मौत|मृत्यु|हताहत)\b/i);
+  if (m) {
+    const word = m[1].toLowerCase();
+    return NUM_WORD_MAP[word] || (parseInt(word, 10) || null);
+  }
+  return null;
+}
+
+function isConflictingCasualty(text, targetCas) {
+  if (!targetCas || !text) return false;
+  const matches = text.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|एक|दो|तीन|चार|पांच|छह|सात|आठ|नौ|दस|\d+)\s*(?:killed|dead|fatalities|casualties|deaths|died|tourists\s+killed|people\s+killed|members\s+dead|लोगों\s*की\s*मौत|मौत|मृतक|हताहत)\b/gi) || [];
+  const found = new Set();
+  matches.forEach(m => {
+    const w = m.split(/\s+/)[0].toLowerCase();
+    const val = NUM_WORD_MAP[w] || parseInt(w, 10);
+    if (val) found.add(val);
+  });
+  const numMatches = text.match(/(\d+)\s*(?:killed|dead|fatalities|मौत|मृतक|deaths)/gi) || [];
+  numMatches.forEach(nm => {
+    const digits = nm.match(/\d+/);
+    if (digits) found.add(parseInt(digits[0], 10));
+  });
+  if (found.size === 0) return false;
+  if (found.has(targetCas)) return false;
+  return true;
+}
+
 const renderStructuredWorkbenchSummary = (summaryText, onCopy = null, copied = false) => {
   if (!summaryText) return null;
   return <GeminiAiSummaryCard summaryText={summaryText} onCopy={onCopy} copied={copied} />;
@@ -193,54 +239,9 @@ export default function SearchWorkbench() {
     a.click();
   };
 
-const NUM_WORD_MAP = {
-  '1': 1, 'one': 1, 'एक': 1,
-  '2': 2, 'two': 2, 'दो': 2,
-  '3': 3, 'three': 3, 'तीन': 3,
-  '4': 4, 'four': 4, 'चार': 4,
-  '5': 5, 'five': 5, 'पांच': 5,
-  '6': 6, 'six': 6, 'छह': 6,
-  '7': 7, 'seven': 7, 'सात': 7,
-  '8': 8, 'eight': 8, 'आठ': 8,
-  '9': 9, 'nine': 9, 'नौ': 9,
-  '10': 10, 'ten': 10, 'दस': 10,
-  '11': 11, 'eleven': 11,
-  '12': 12, 'twelve': 12,
-  '13': 13, 'thirteen': 13,
-  '14': 14, 'fourteen': 14
-};
-
-function extractTargetCasualties(queryText) {
-  if (!queryText) return null;
-  const m = queryText.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|एक|दो|तीन|चार|पांच|छह|सात|आठ|नौ|दस|\d+)\s*(?:killed|dead|fatalities|casualties|deaths|died|मौत|मृत्यु|हताहत)\b/i);
-  if (m) {
-    const word = m[1].toLowerCase();
-    return NUM_WORD_MAP[word] || (parseInt(word, 10) || null);
-  }
-  return null;
-}
-
-function isConflictingCasualty(text, targetCas) {
-  if (!targetCas || !text) return false;
-  const matches = text.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|एक|दो|तीन|चार|पांच|छह|सात|आठ|नौ|दस|\d+)\s*(?:killed|dead|fatalities|casualties|deaths|died|tourists\s+killed|people\s+killed|members\s+dead|लोगों\s*की\s*मौत|मौत|मृतक|हताहत)\b/gi) || [];
-  const found = new Set();
-  matches.forEach(m => {
-    const w = m.split(/\s+/)[0].toLowerCase();
-    const val = NUM_WORD_MAP[w] || parseInt(w, 10);
-    if (val) found.add(val);
-  });
-  const numMatches = text.match(/(\d+)\s*(?:killed|dead|fatalities|मौत|मृतक|deaths)/gi) || [];
-  numMatches.forEach(nm => {
-    const digits = nm.match(/\d+/);
-    if (digits) found.add(parseInt(digits[0], 10));
-  });
-  if (found.size === 0) return false;
-  if (found.has(targetCas)) return false;
-  return true;
-}
-
   // Extract explicit casualty constraint from active search inputs
-  const targetCas = extractTargetCasualties(query || `${insuredName} ${vehicleNo} ${location} ${incidentKeywords}`);
+  const activeSearchText = searchMode === 'freeform' ? freeformQuery : `${insuredName} ${vehicleNo} ${location} ${incidentKeywords}`;
+  const targetCas = extractTargetCasualties(activeSearchText);
 
   // Base results filtered against conflicting casualty reports
   const casualtyFilteredResults = (response?.results || []).filter(r => {
