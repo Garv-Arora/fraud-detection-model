@@ -220,25 +220,25 @@ def generate_search_queries(facts: Dict[str, Any]) -> List[str]:
     return queries[:10]
 
 NUM_WORD_MAP = {
-    '1': 1, 'one': 1,
-    '2': 2, 'two': 2,
-    '3': 3, 'three': 3,
-    '4': 4, 'four': 4,
-    '5': 5, 'five': 5,
-    '6': 6, 'six': 6,
-    '7': 7, 'seven': 7,
-    '8': 8, 'eight': 8,
-    '9': 9, 'nine': 9,
-    '10': 10, 'ten': 10,
-    '11': 11, 'eleven': 11,
-    '12': 12, 'twelve': 12,
-    '13': 13, 'thirteen': 13,
-    '14': 14, 'fourteen': 14
+    '1': 1, 'one': 1, 'एक': 1,
+    '2': 2, 'two': 2, 'दो': 2,
+    '3': 3, 'three': 3, 'तीन': 3,
+    '4': 4, 'four': 4, 'चार': 4,
+    '5': 5, 'five': 5, 'पांच': 5,
+    '6': 6, 'six': 6, 'छह': 6,
+    '7': 7, 'seven': 7, 'सात': 7,
+    '8': 8, 'eight': 8, 'आठ': 8,
+    '9': 9, 'nine': 9, 'नौ': 9,
+    '10': 10, 'ten': 10, 'दस': 10,
+    '11': 11, 'eleven': 11, 'ग्यारह': 11,
+    '12': 12, 'twelve': 12, 'बारह': 12,
+    '13': 13, 'thirteen': 13, 'तेरह': 13,
+    '14': 14, 'fourteen': 14, 'चौदह': 14
 }
 
 def extract_target_casualties(query: str) -> Optional[int]:
-    """Extracts explicit casualty target if user specified e.g. '2 killed', 'two dead'."""
-    m = re.search(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|\d+)\s+(?:killed|dead|fatalities|casualties|deaths|died)\b', query, re.IGNORECASE)
+    """Extracts explicit casualty target if user specified e.g. '2 killed', 'two dead', 'दो मौत'."""
+    m = re.search(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|एक|दो|तीन|चार|पांच|छह|सात|आठ|नौ|दस|\d+)\s*(?:killed|dead|fatalities|casualties|deaths|died|मौत|मृत्यु|हताहत)\b', query, re.IGNORECASE)
     if m:
         word = m.group(1).lower()
         return NUM_WORD_MAP.get(word, int(word) if word.isdigit() else None)
@@ -249,7 +249,7 @@ def is_conflicting_casualty(article_text: str, target_cas: Optional[int]) -> boo
     if not target_cas:
         return False
 
-    matches = re.findall(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|\d+)\s+(?:killed|dead|fatalities|casualties|deaths|died|tourists\s+killed|people\s+killed|members\s+dead)\b', article_text, re.IGNORECASE)
+    matches = re.findall(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|एक|दो|तीन|चार|पांच|छह|सात|आठ|नौ|दस|\d+)\s*(?:killed|dead|fatalities|casualties|deaths|died|tourists\s+killed|people\s+killed|members\s+dead|लोगों\s*की\s*मौत|मौत|मृतक|हताहत)\b', article_text, re.IGNORECASE)
     found_numbers = set()
     for m in matches:
         w = m.lower()
@@ -257,7 +257,7 @@ def is_conflicting_casualty(article_text: str, target_cas: Optional[int]) -> boo
         if val is not None:
             found_numbers.add(val)
 
-    num_matches = re.findall(r'\b(\d+)\s+(?:killed|dead|fatalities)\b', article_text, re.IGNORECASE)
+    num_matches = re.findall(r'(\d+)\s*(?:killed|dead|fatalities|मौत|मृतक|deaths)', article_text, re.IGNORECASE)
     for nm in num_matches:
         if nm.isdigit():
             found_numbers.add(int(nm))
@@ -1055,10 +1055,25 @@ def execute_search_workbench(
     primary_model = anchors["vehicle_types"][0] if anchors["vehicle_types"] else ""
     primary_kw = anchors["keywords"][0] if anchors["keywords"] else ""
 
-    # Generate Prioritized Multi-Engine Queries
+    # Generate Tiered Multi-Engine Queries (Tier 1: Narrow Unified Conjunction -> Tier 2: Fragmented Progressive Fallback)
     queries = []
 
-    # Priority 0: Verbatim query and clean core terms
+    # --- TIER 1: NARROW UNIFIED CONJUNCTION (Combines all key anchors together) ---
+    unified_parts = []
+    if primary_loc:
+        unified_parts.append(primary_loc)
+    if primary_veh:
+        unified_parts.append(primary_veh)
+    if primary_model and primary_model != primary_veh:
+        unified_parts.append(primary_model)
+    if primary_kw:
+        unified_parts.append(primary_kw)
+
+    if len(unified_parts) >= 2:
+        # Full narrow conjunction
+        queries.append(" ".join(unified_parts) + " accident")
+        queries.append(" ".join(unified_parts))
+
     if query and query.strip():
         q_strip = query.strip()
         queries.append(q_strip)
@@ -1069,12 +1084,10 @@ def execute_search_workbench(
         # Number translation (e.g. '2 killed' -> 'two killed')
         if '2 killed' in q_strip.lower():
             queries.append(re.sub(r'\b2\s+killed\b', 'two killed', q_strip, flags=re.IGNORECASE))
-            if primary_loc:
-                queries.append(f"{primary_loc} 2 killed")
-                queries.append(f"two killed {primary_loc}")
         elif '3 killed' in q_strip.lower():
             queries.append(re.sub(r'\b3\s+killed\b', 'three killed', q_strip, flags=re.IGNORECASE))
 
+    # --- TIER 2: PROGRESSIVE FRAGMENTED SUB-QUERIES (Fallback sub-combinations) ---
     if primary_veh and primary_loc:
         queries.append(f"{primary_veh} {primary_loc} accident")
         queries.append(f"site:instagram.com {primary_veh}")
@@ -1084,17 +1097,19 @@ def execute_search_workbench(
         queries.append(f"site:instagram.com {primary_veh}")
         queries.append(f"site:facebook.com {primary_veh}")
 
+    if primary_loc and primary_kw:
+        queries.append(f"{primary_loc} {primary_kw}")
+        if '2 killed' in primary_kw.lower():
+            queries.append(f"two killed {primary_loc}")
+        queries.append(f"site:facebook.com {primary_loc} {primary_kw}")
+        queries.append(f"site:instagram.com {primary_loc} {primary_kw}")
+        queries.append(f"site:youtube.com {primary_loc} {primary_kw} accident")
+
     if primary_loc and primary_model:
         queries.append(f"{primary_loc} {primary_model} accident")
         queries.append(f"{primary_loc} {primary_model} सड़क हादसा")
         queries.append(f"site:facebook.com {primary_loc} {primary_model}")
         queries.append(f"site:instagram.com {primary_loc} {primary_model}")
-        queries.append(f"site:youtube.com {primary_loc} {primary_model} accident")
-    elif primary_loc and primary_kw:
-        queries.append(f"{primary_loc} {primary_kw} accident")
-        queries.append(f"{primary_loc} {primary_kw}")
-        queries.append(f"site:facebook.com {primary_loc} {primary_kw}")
-        queries.append(f"site:instagram.com {primary_loc} {primary_kw}")
     elif primary_loc:
         queries.append(f"{primary_loc} road accident")
         queries.append(f"{primary_loc} सड़क हादसा")
