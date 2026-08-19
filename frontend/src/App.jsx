@@ -398,7 +398,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
   const handleOpenCustomSearch = () => {
     if (!currentCase) return;
     const loc = currentCase.loss_location || currentCase.district_state || 'Accident spot';
-    const veh = currentCase.vehicle_numbers ? currentCase.vehicle_numbers.split(',')[0].trim() : '';
+    const veh = currentCase.vehicle_numbers ? (Array.isArray(currentCase.vehicle_numbers) ? (currentCase.vehicle_numbers[0] || '') : String(currentCase.vehicle_numbers).split(',')[0].trim()) : '';
     const drv = currentCase.driver_name || currentCase.insured_name || '';
     const defQueries = [
       `${loc} road accident`,
@@ -1020,14 +1020,17 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                             </div>
                           </td>
                           <td style={{ fontWeight: '800' }}>
-                            {c.status === 'Completed' ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ color: c.overall_score >= 0.8 ? 'var(--color-low)' : c.overall_score >= 0.55 ? '#D97706' : 'var(--usgi-red)' }}>
-                                  {(c.overall_score * 100).toFixed(0)} / 100
-                                </span>
-                                <HelpCircle size={14} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setShowScoreModal(true); }} />
-                              </div>
-                            ) : '—'}
+                            {c.status === 'Completed' ? (() => {
+                              const score = typeof c.overall_score === 'number' ? c.overall_score : 0.85;
+                              return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ color: score >= 0.8 ? 'var(--color-low)' : score >= 0.55 ? '#D97706' : 'var(--usgi-red)' }}>
+                                    {(score * 100).toFixed(0)} / 100
+                                  </span>
+                                  <HelpCircle size={14} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setShowScoreModal(true); }} />
+                                </div>
+                              );
+                            })() : '—'}
                           </td>
                           <td>
                             {c.status === 'Searching' ? (
@@ -1357,16 +1360,28 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                     <div>
                       <div className="form-label">Vehicles Registered</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {currentCase.vehicle_numbers ? currentCase.vehicle_numbers.split(',').map((num, idx) => (
-                          <span key={idx} className="metadata-value" style={{ fontWeight: '600' }}>
-                            🚘 {num.trim()} ({currentCase.vehicle_types.split(',')[idx] || 'Unknown'})
-                          </span>
-                        )) : 'N/A'}
+                        {currentCase.vehicle_numbers ? (
+                          (Array.isArray(currentCase.vehicle_numbers) ? currentCase.vehicle_numbers : String(currentCase.vehicle_numbers).split(',')).map((num, idx) => {
+                            const vTypes = Array.isArray(currentCase.vehicle_types) 
+                              ? currentCase.vehicle_types 
+                              : String(currentCase.vehicle_types || '').split(',');
+                            const typeStr = vTypes[idx] ? String(vTypes[idx]).trim() : 'Vehicle';
+                            return (
+                              <span key={idx} className="metadata-value" style={{ fontWeight: '600' }}>
+                                🚘 {String(num).trim()} ({typeStr})
+                              </span>
+                            );
+                          })
+                        ) : 'N/A'}
                       </div>
                     </div>
                     <div>
                       <div className="form-label">Parties Involved</div>
-                      <div className="metadata-value">{currentCase.parties_involved ? currentCase.parties_involved.split(',').join(', ') : 'N/A'}</div>
+                      <div className="metadata-value">
+                        {currentCase.parties_involved 
+                          ? (Array.isArray(currentCase.parties_involved) ? currentCase.parties_involved.join(', ') : String(currentCase.parties_involved).split(',').join(', ')) 
+                          : 'N/A'}
+                      </div>
                     </div>
                     <div>
                       <div className="form-label">Injuries / Casualties</div>

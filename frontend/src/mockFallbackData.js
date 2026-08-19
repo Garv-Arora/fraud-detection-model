@@ -10,7 +10,7 @@ export const FALLBACK_CASES = [
     insured_name: "Ramesh Kumar",
     insured_address: "Kosi Kalan, Mathura, Uttar Pradesh",
     insured_contact_no: "9876543210",
-    vehicle_numbers: "UP-85-AT-9988,HR-26-Z-1122",
+    vehicle_numbers: "UP-85-AT-9988, HR-26-Z-1122",
     vehicle_make: "Honda",
     vehicle_model: "CB Shine",
     driver_name: "Ramesh Kumar",
@@ -20,8 +20,8 @@ export const FALLBACK_CASES = [
     accident_location_city: "Mathura",
     accident_location_state: "Uttar Pradesh",
     accident_location_region: "North",
-    vehicle_types: "Motorcycle,Truck",
-    parties_involved: "Ramesh Kumar (Rider),Suresh Singh (Truck Driver)",
+    vehicle_types: "Motorcycle, Truck",
+    parties_involved: "Ramesh Kumar (Rider), Suresh Singh (Truck Driver)",
     injury_or_death: "Ramesh Kumar suffered head injuries, declared dead on arrival at District Hospital",
     FIR_cause_narrative: "The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behind by a speeding truck bearing registration number HR-26-Z-1122 on NH-2 near Kosi Kalan. The rider Ramesh Kumar fell onto the road and sustained fatal head injuries. The truck driver Suresh Singh fled the spot leaving the vehicle.",
     intimation_date: "2025-05-13",
@@ -41,6 +41,8 @@ export const FALLBACK_CASES = [
     crime_check: "IPC 279, 304A registered against truck driver",
     io_name: "SI Virendra Singh",
     status: "Completed",
+    overall_score: 0.85,
+    risk_level: "LOW RISK",
     mismatch_flags: JSON.stringify(["Corridor Match Verified", "Unlicensed Third Party Driver"]),
     ai_summary: `### ✨ Executive AI Overview
 On **May 12, 2025 at approximately 2:30 PM**, a fatal road accident occurred on **NH-2 near Kosi Kalan, Mathura, Uttar Pradesh**. A two-wheeler (**UP-85-AT-9988**) ridden by **Ramesh Kumar** was rear-ended by an errant transport truck (**HR-26-Z-1122**). The impact resulted in fatal head trauma for the rider.
@@ -112,6 +114,8 @@ On **May 12, 2025 at approximately 2:30 PM**, a fatal road accident occurred on 
     crime_check: "No crime",
     io_name: "SI Rajesh Rawat",
     status: "Completed",
+    overall_score: 0.32,
+    risk_level: "HIGH REVIEW",
     mismatch_flags: JSON.stringify(["Date Mismatch", "Pre-Inception Loss Discrepancy", "Social Media Damage Reel Match"]),
     ai_summary: `### ✨ Executive AI Overview
 Investigation into claim **CL24181742** uncovered a critical **Pre-Inception Loss Discrepancy**. While the claimant declared the accident occurred on **July 14, 2024** (following policy inception on July 12, 2024), forensic media discovery revealed an **Instagram damage video uploaded on July 11, 2024**, conclusively establishing that vehicle damage predated the insurance policy.
@@ -200,6 +204,8 @@ Investigation into claim **CL24181742** uncovered a critical **Pre-Inception Los
     crime_check: "No crime",
     io_name: "SI Kuldeep",
     status: "Completed",
+    overall_score: 0.28,
+    risk_level: "HIGH REVIEW",
     mismatch_flags: JSON.stringify(["Driver Implant", "Hazardous Stunt Driving", "Unlicensed Driver"]),
     ai_summary: `### ✨ Executive AI Overview
 Investigation into claim **CL26123008** identified multiple severe non-disclosures. Public social media video discovery on **Facebook** and **Instagram** revealed that the subject vehicle (**JK-02-DU-7684**) was actively deployed in extreme road drifting and hazardous speed stunts. Furthermore, neither the insured nor the driver possesses a valid Driving Licence.
@@ -284,6 +290,8 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
     crime_check: "GD entry #14 at Durgaganj PS",
     io_name: "SI Ramakant",
     status: "Completed",
+    overall_score: 0.38,
+    risk_level: "HIGH REVIEW",
     mismatch_flags: JSON.stringify(["Commercial Use in Private Policy", "Occupant Count Discrepancy", "Driver Implant"]),
     ai_summary: `### ✨ Executive AI Overview
 Comprehensive investigation into claim **CL26121725** confirmed that private car **UP-66-K-9912** was operating as an unauthorized commercial hire vehicle in a wedding procession (**Barat**) when it collided with a truck near Durgaganj on **May 1, 2026**.
@@ -351,6 +359,8 @@ Comprehensive investigation into claim **CL26121725** confirmed that private car
     crime_check: "GD entry at Cantt PS",
     io_name: "SI Anand Kumar",
     status: "Completed",
+    overall_score: 0.40,
+    risk_level: "HIGH REVIEW",
     mismatch_flags: JSON.stringify(["Driver Implant", "Hospital Timestamp Contradiction", "Spot Video Female Footwear Discrepancy"]),
     ai_summary: `### ✨ Executive AI Overview
 Investigation into claim **CL25096636** revealed a definitive **Driver Implant and Temporal Contradiction**. The claimant stated the two-wheeler was ridden by **Mahendra Kumar Shrivastav** at 12:30 PM. However, BRD Medical College casualty records show patient **Anshika Mishra** was admitted at **10:57 AM** (over 90 minutes prior to claimed time) and spot footage confirmed female footwear at the rider position.
