@@ -1051,9 +1051,9 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                             <span style={{ 
                               fontSize: '11px', 
                               fontWeight: '700',
-                              color: c.pushback_status.includes('Success') ? 'var(--color-low)' : 'var(--text-muted)'
+                              color: c.pushback_status && c.pushback_status.includes('Success') ? 'var(--color-low)' : 'var(--text-muted)'
                             }}>
-                              {c.pushback_status.includes('Success') ? '✓ SYNCED' : 'PENDING'}
+                              {c.pushback_status && c.pushback_status.includes('Success') ? '✓ SYNCED' : 'PENDING'}
                             </span>
                           </td>
                           <td>
@@ -1299,10 +1299,10 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                       <button 
                         className="btn btn-secondary" 
                         onClick={handleQuestPushback} 
-                        disabled={pushingToQuest || currentCase.pushback_status.includes('Success')}
+                        disabled={pushingToQuest || (currentCase.pushback_status && currentCase.pushback_status.includes('Success'))}
                       >
                         {pushingToQuest ? <RefreshCw className="animate-spin" size={16} /> : <ArrowUpRight size={16} />}
-                        {currentCase.pushback_status.includes('Success') ? 'Synced to Quest' : 'Push to Quest API'}
+                        {currentCase.pushback_status && currentCase.pushback_status.includes('Success') ? 'Synced to Quest' : 'Push to Quest API'}
                       </button>
 
                       <div style={{ borderLeft: '1px solid var(--border-card)', height: '40px', margin: '0 8px' }}></div>
@@ -1324,7 +1324,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                   )}
 
                   {/* Closed status banner */}
-                  {currentCase.status.includes('Investigated') && (
+                  {currentCase.status && currentCase.status.includes('Investigated') && (
                     <div className={currentCase.status.includes('Approved') ? 'btn-success' : 'btn-danger'} 
                          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderRadius: '8px', marginTop: '20px', fontSize: '14px', fontWeight: 'bold' }}>
                       {currentCase.status.includes('Approved') ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
@@ -1805,10 +1805,10 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                                     {img.image_name}
                                   </div>
                                   <div className="lens-match-status" style={{ 
-                                    color: img.status.includes('Stock') ? 'var(--color-high)' : 
-                                           img.status.includes('Prior') ? 'var(--color-medium)' : 'var(--color-low)'
+                                    color: img.status && img.status.includes('Stock') ? 'var(--color-high)' : 
+                                           img.status && img.status.includes('Prior') ? 'var(--color-medium)' : 'var(--color-low)'
                                   }}>
-                                    ● {img.status.toUpperCase()}
+                                    ● {(img.status || 'Verified').toUpperCase()}
                                   </div>
                                   <div className="lens-match-desc">{img.why_matched}</div>
                                 </div>
