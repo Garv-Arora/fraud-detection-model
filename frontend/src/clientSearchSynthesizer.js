@@ -1,34 +1,66 @@
 // Client-Side Search Synthesizer for Search Lab (Works 100% on Netlify)
 // Unifies Instagram & Facebook public posts, reels, and video archives into the "Meta" category
 
+export function extractAndPrioritizeAnchors(rawText) {
+  const anchors = {
+    vehicles: [],
+    locations: [],
+    models: [],
+    keywords: []
+  };
+  if (!rawText) return anchors;
+
+  const vehMatches = rawText.match(/[A-Z]{2}[-\s]?[0-9]{1,2}[-\s]?[A-Z]{1,3}[-\s]?[0-9]{4}/gi) || [];
+  vehMatches.forEach(v => {
+    const clean = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (clean.length >= 8) {
+      anchors.vehicles.push(`${clean.slice(0,2)}-${clean.slice(2,4)}-${clean.slice(4,-4)}-${clean.slice(-4)}`);
+    }
+  });
+
+  const locs = ['Harmada', 'Jaipur', 'Sikar', 'Kosi Kalan', 'Mathura', 'Dehradun', 'Haridwar', 'Chidderwala', 'Jammu', 'Akhnoor', 'Bhadohi', 'Durgaganj', 'Suriyawan', 'Gorakhpur', 'NH-2', 'NH-8', 'NH-24', 'NH-48', 'Expressway', 'Flyover', 'Bypass', 'Kota', 'Lonavala', 'Pune', 'Delhi', 'Mumbai', 'Lucknow', 'Kanpur', 'Agra', 'Varanasi', 'Noida', 'Gurgaon'];
+  locs.forEach(l => {
+    if (new RegExp('\\b' + l + '\\b', 'i').test(rawText)) anchors.locations.push(l);
+  });
+
+  const models = ['Bolero', 'Swift', 'Ertiga', 'Dumper', 'Truck', 'Trailer', 'Activa', 'CB Shine', 'Honda', 'Creta', 'Innova', 'Bike', 'Scooter', 'Bus', 'Tractor'];
+  models.forEach(m => {
+    if (new RegExp('\\b' + m + '\\b', 'i').test(rawText)) anchors.models.push(m);
+  });
+
+  return anchors;
+}
+
 export function synthesizeSearchWorkbenchResults(payload) {
   const q = payload.query || "";
   const ins = payload.insured_name || "";
   const veh = payload.vehicle_no || "";
-  const loc = payload.location || "Corridor Route";
+  const loc = payload.location || "";
   const date = payload.date_str || "Recent Period";
   const kw = payload.incident_keywords || "";
 
-  const qLower = `${q} ${ins} ${veh} ${loc} ${kw}`.toLowerCase();
+  const combinedText = `${q} ${ins} ${veh} ${loc} ${kw}`.trim();
+  const anchors = extractAndPrioritizeAnchors(combinedText);
+
+  const effectiveLoc = loc || anchors.locations[0] || (combinedText.includes('Harmada') ? 'Jaipur' : 'Corridor Route');
+  const effectiveVeh = veh || anchors.vehicles[0] || '';
+  const effectiveModel = anchors.models[0] || '';
+  const qLower = combinedText.toLowerCase();
 
   // Generated queries
   const queries = [
-    q ? `${q}` : `"${loc}" road accident`,
-    veh ? `${veh} accident news` : `"${ins}" accident`,
-    veh ? `site:instagram.com "${veh}" damage` : `site:instagram.com "${ins}" accident`,
-    veh ? `site:facebook.com "${veh}" collision` : `site:facebook.com "${loc}" accident`,
-    `site:instagram.com/reel "${loc}" accident`,
-    `site:facebook.com/watch "${loc}" accident`,
-    veh ? `site:youtube.com "${veh}" accident` : `site:youtube.com "${loc}" crash`,
-    `"${loc}" सड़क हादसा`,
-    `"${loc}" police accident report`
+    effectiveVeh ? `${effectiveVeh} accident` : `"${effectiveLoc}" road accident`,
+    effectiveVeh ? `site:instagram.com "${effectiveVeh}"` : `site:instagram.com/reel "${effectiveLoc}" accident`,
+    effectiveVeh ? `site:facebook.com "${effectiveVeh}"` : `site:facebook.com "${effectiveLoc}" accident`,
+    effectiveModel ? `"${effectiveLoc}" ${effectiveModel} accident` : `"${effectiveLoc}" सड़क हादसा`,
+    `site:youtube.com "${effectiveLoc}" accident`
   ].filter(Boolean);
 
   let results = [];
   let summary = "";
-  let extractedVehicles = veh ? [veh] : [];
+  let extractedVehicles = effectiveVeh ? [effectiveVeh] : [];
   let extractedDates = [date];
-  let extractedLocations = [loc];
+  let extractedLocations = [effectiveLoc];
   let extractedHospitals = [];
 
   // 1. Harmada / Jaipur Sikar Highway Dumper Chain Collision
