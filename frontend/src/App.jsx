@@ -9,221 +9,42 @@ import {
 import SearchWorkbench from './components/SearchWorkbench';
 import GeminiAiSummaryCard from './components/GeminiAiSummaryCard';
 import LoginPage from './components/LoginPage';
+import EvidenceResultsPanel from './components/EvidenceResultsPanel';
+import BatchCaseWorkspace from './components/BatchCaseWorkspace';
+import { BatchEngine } from './lib/batchEngine';
 import { FALLBACK_CASES } from './mockFallbackData';
 import { parseExcelWorkbookInBrowser } from './clientExcelParser';
-import { parseTextDocumentInBrowser } from './clientTextParser';
 import { exportCaseToExcelInBrowser, downloadExcelTemplateInBrowser } from './clientExcelExporter';
-import { synthesizeSearchWorkbenchResults } from './clientSearchSynthesizer';
+import { extractPdfTextFromFile } from './lib/pdfTextExtractor';
+import { extractClaimFacts } from './lib/claimFactExtractor';
+import ClaimFactMatrix from './components/ClaimFactMatrix';
+import { runSearch } from './lib/searchService';
+import { extractAnchors, buildQueryPlan } from './lib/searchIntel';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+/**
+ * Everything about an ingest the reviewer must know before trusting the record:
+ * pages that were skipped, pages that failed, and fields that could not be
+ * recovered. Reported alongside the success message rather than swallowed.
+ */
+const formatIngestCaveats = (extraction, quality) => {
+  const parts = [];
+  if (extraction?.truncated) parts.push(`Only the first ${extraction.pagesRead} pages were read.`);
+  (extraction?.pageErrors || []).forEach((e) => parts.push(`Page ${e.page} could not be read and was skipped.`));
+  (quality?.notes || []).forEach((n) => parts.push(n));
+  const missing = (quality?.missingCritical || []).filter(
+    (f) => !(f === 'vehicle_numbers' && quality?.vehicleUnregistered)
+  );
+  if (missing.length) parts.push(`Verify manually: ${missing.join(', ')}.`);
+  return parts.length ? ` ${parts.join(' ')}` : '';
+};
 
 const renderStructuredGptSummary = (summaryText, onCopy = null, copied = false) => {
   if (!summaryText) return null;
   return <GeminiAiSummaryCard summaryText={summaryText} onCopy={onCopy} copied={copied} />;
 };
 
-const Claim30HeaderMatrix = ({ facts, confidence = {}, isEditable = false, onChange = null }) => {
-  if (!facts) return null;
-
-  const getConf = (key) => {
-    const val = confidence[key];
-    if (val === undefined || val === null) return '100%';
-    return `${Math.round(val * 100)}%`;
-  };
-
-  const getConfClass = (key) => {
-    const val = confidence[key];
-    if (val === undefined || val >= 0.85) return 'badge-low';
-    if (val >= 0.6) return 'badge-medium';
-    return 'badge-high';
-  };
-
-  const updateField = (field, val) => {
-    if (onChange) {
-      onChange({ ...facts, [field]: val });
-    }
-  };
-
-  const vehicleList = Array.isArray(facts.vehicle_numbers) 
-    ? facts.vehicle_numbers.join(', ') 
-    : (facts.vehicle_numbers || facts.vehicle_no || '');
-
-  const partiesList = Array.isArray(facts.parties_involved)
-    ? facts.parties_involved.join(', ')
-    : (facts.parties_involved || '');
-
-  const sections = [
-    {
-      title: "📋 Section 1: Policy & Intimation Core (Headers 1, 16)",
-      color: "var(--usgi-red)",
-      fields: [
-        { label: "1. Claim No", key: "claim_id", val: facts.claim_id, required: true },
-        { label: "Policy Information / No", key: "policy_information", val: facts.policy_information || "AVO/2315/20079740" },
-        { label: "16. Intimation Date", key: "intimation_date", val: facts.intimation_date || "Same Day" },
-        { label: "Internal Policy Flag / Supporting Code", key: "supporting_information", val: facts.supporting_information || "AVO - Proximity Valid", isTextarea: true }
-      ]
-    },
-    {
-      title: "🚗 Section 2: Vehicle & Registration Profile (Headers 5, 6, 7, 25)",
-      color: "#059669",
-      fields: [
-        { label: "5. Vehicle Number (RTO)", key: "vehicle_numbers", val: vehicleList, required: true },
-        { label: "6. Vehicle Make", key: "vehicle_make", val: facts.vehicle_make || "MANAM POWER / MARUTI" },
-        { label: "7. Vehicle Model", key: "vehicle_model", val: facts.vehicle_model || "BLAZO 55 TR / SWIFT" },
-        { label: "25. Past Record of Vehicle", key: "past_record_vehicle", val: facts.past_record_vehicle || "Clean / No Prior Repudiations" }
-      ]
-    },
-    {
-      title: "👤 Section 3: Insured & Driver Identity (Headers 2, 3, 4, 8, 9)",
-      color: "#2563EB",
-      fields: [
-        { label: "2. Insured Name", key: "insured_name", val: facts.insured_name || partiesList || "On Record" },
-        { label: "3. Insured Address", key: "insured_address", val: facts.insured_address || facts.district_state || "Registered Address on Record" },
-        { label: "4. Insured Contact No", key: "insured_contact_no", val: facts.insured_contact_no || "+91-98XXXXXX21" },
-        { label: "8. Driver Name (Claimed)", key: "driver_name", val: facts.driver_name || facts.insured_name || "Lalit Parakh" },
-        { label: "9. Driver Contact No", key: "driver_contact_no", val: facts.driver_contact_no || "+91-98XXXXXX88" }
-      ]
-    },
-    {
-      title: "📍 Section 4: Accident Spot & Spatial Jurisdiction (Headers 10, 11, 12, 13, 14, 21, 22)",
-      color: "#D97706",
-      fields: [
-        { label: "10. Spot of Accident", key: "spot_of_accident", val: facts.spot_of_accident || facts.loss_location || "GANGRAR / CHITTORGARH" },
-        { label: "11. Date & Time of Accident", key: "accident_date_time", val: facts.accident_date_time || "14-06-2026 12:30 AM" },
-        { label: "12. Accident Location City", key: "accident_location_city", val: facts.accident_location_city || (facts.loss_location ? facts.loss_location.split(',')[0].trim() : "GANGRAR") },
-        { label: "13. Accident Location State", key: "accident_location_state", val: facts.accident_location_state || facts.state || "RAJASTHAN" },
-        { label: "14. Accident Location Region", key: "accident_location_region", val: facts.accident_location_region || facts.district_state || "Chittorgarh Corridor" },
-        { label: "22. No of Occupants", key: "no_of_occupants", val: facts.no_of_occupants || "1-2 Occupants" }
-      ]
-    },
-    {
-      title: "👮 Section 5: Police, Legal & Emergency Audits (Headers 17, 18, 19, 20, 26, 27, 28, 29, 30)",
-      color: "#7C3AED",
-      fields: [
-        { label: "19. Police Station Name", key: "police_station", val: facts.police_station || "Gangrar PS / Local Thana" },
-        { label: "20. Police Station District", key: "police_station_district", val: facts.police_station_district || facts.district_state || "Chittorgarh" },
-        { label: "17. FIR Date", key: "fir_date", val: facts.fir_date || (facts.accident_date_time ? facts.accident_date_time.split('T')[0] : "14-06-2026") },
-        { label: "18. FIR Time", key: "fir_time", val: facts.fir_time || "12:30 AM" },
-        { label: "30. IO Name (Investigating Officer)", key: "io_name", val: facts.io_name || "Sub-Inspector On Duty" },
-        { label: "29. Crime Check", key: "crime_check", val: facts.crime_check || "Clear / No Theft Flag" },
-        { label: "26. Call on 112 (PCR Log)", key: "call_112_check", val: facts.call_112_check || "112 Emergency Log Audited" },
-        { label: "27. Call on 108 (Ambulance Log)", key: "call_108_check", val: facts.call_108_check || "108 Call Dispatch Audited" },
-        { label: "28. Hospital Name & MLC Record", key: "hospital_name", val: facts.hospital_name || "District Hospital / CHC" }
-      ]
-    },
-    {
-      title: "📝 Section 6: Incident Narrative & Digital Checks (Headers 15, 23, 24)",
-      color: "#DC2626",
-      fields: [
-        { label: "15. Cause of Accident / Loss Narrative", key: "FIR_cause_narrative", val: facts.FIR_cause_narrative || "Vehicle dashed with third-party rear brake.", isTextarea: true },
-        { label: "Injuries / Casualties Check", key: "injury_or_death", val: facts.injury_or_death || "No fatal casualties reported" },
-        { label: "23. News Check Status", key: "news_check", val: facts.news_check || "Live Multi-Index Crawled" },
-        { label: "24. Social Media Check Status", key: "social_media_check", val: facts.social_media_check || "Instagram & YouTube Scanned" }
-      ]
-    }
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <Database size={18} style={{ color: 'var(--usgi-red)' }} />
-            Universal Sompo 30-Header Claims Schema
-          </h4>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
-            Extracted and structured 30 standard claim entities from intimation documents, FIRs, and claim notes.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <span className="badge" style={{ background: '#EFF6FF', color: '#2563EB', fontSize: '11px', fontWeight: '700' }}>
-            ✓ 30/30 Headers Structured
-          </span>
-          {isEditable && (
-            <span className="badge badge-low" style={{ fontSize: '11px' }}>
-              ✍️ Verification Mode
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-        {sections.map((sec, sIdx) => (
-          <div key={sIdx} className="card" style={{ 
-            background: '#FFFFFF', 
-            border: '1px solid #E2E8F0', 
-            borderTop: `4px solid ${sec.color}`, 
-            borderRadius: '12px', 
-            padding: '18px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <h5 style={{ fontSize: '12.5px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
-              {sec.title}
-            </h5>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {sec.fields.map((f, fIdx) => (
-                <div key={fIdx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {f.label} {f.required && <span style={{ color: 'var(--usgi-red)' }}>*</span>}
-                    </label>
-                    {isEditable && (
-                      <span className={`badge ${getConfClass(f.key)}`} style={{ fontSize: '9px', padding: '1px 6px' }}>
-                        Conf: {getConf(f.key)}
-                      </span>
-                    )}
-                  </div>
-
-                  {isEditable ? (
-                    f.isTextarea ? (
-                      <textarea 
-                        className="form-control" 
-                        style={{ minHeight: '56px', fontSize: '12px', padding: '6px 10px' }}
-                        value={f.val || ''}
-                        onChange={(e) => updateField(f.key, e.target.value)}
-                      />
-                    ) : (
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        style={{ fontSize: '12px', padding: '6px 10px' }}
-                        value={f.val || ''}
-                        onChange={(e) => {
-                          if (f.key === 'vehicle_numbers') {
-                            updateField('vehicle_numbers', e.target.value.split(',').map(s => s.trim()));
-                          } else {
-                            updateField(f.key, e.target.value);
-                          }
-                        }}
-                      />
-                    )
-                  ) : (
-                    <div style={{ 
-                      background: '#F8FAFC', 
-                      border: '1px solid #E2E8F0', 
-                      borderRadius: '6px', 
-                      padding: '7px 10px', 
-                      fontSize: '12px', 
-                      color: '#1E293B',
-                      fontWeight: f.required ? '700' : '500',
-                      lineHeight: '1.4'
-                    }}>
-                      {f.val || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Not Specified</span>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -265,6 +86,7 @@ export default function App() {
   // Excel Claims Template Upload state
   const [excelFile, setExcelFile] = useState(null);
   const [importStatus, setImportStatus] = useState(null);
+  const [ingestMode, setIngestMode] = useState('single'); // 'single' | 'bulk'
   
   // Tabs on Detail View
   const [detailTab, setDetailTab] = useState('facts'); // facts, ai_summary, evidence, mismatch, epaper, lens, audit
@@ -399,22 +221,14 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
   };
 
   // Custom Search Handlers
+  // Seeds the custom-search modal from the same tiered query planner the
+  // automated search uses, so the investigator edits real queries rather than
+  // a fixed template.
   const handleOpenCustomSearch = () => {
     if (!currentCase) return;
-    const loc = currentCase.loss_location || currentCase.district_state || 'Accident spot';
-    const veh = currentCase.vehicle_numbers ? (Array.isArray(currentCase.vehicle_numbers) ? (currentCase.vehicle_numbers[0] || '') : String(currentCase.vehicle_numbers).split(',')[0].trim()) : '';
-    const drv = currentCase.driver_name || currentCase.insured_name || '';
-    const defQueries = [
-      `${loc} road accident`,
-      veh ? `${veh} accident news` : '',
-      drv ? `${drv} accident` : '',
-      drv ? `site:instagram.com "${drv}" accident` : '',
-      drv ? `site:facebook.com "${drv}" accident` : '',
-      veh ? `site:youtube.com "${veh}" accident` : '',
-      `${loc} सड़क दुर्घटना`,
-      `${loc} बारात हादसा`
-    ].filter(q => q.trim().length > 4);
-    setCustomQueries(defQueries);
+    const anchors = extractAnchors(currentCase.FIR_cause_narrative || '', currentCase);
+    const plan = buildQueryPlan(anchors, { maxQueries: 10 });
+    setCustomQueries(plan.map(p => p.query));
     setShowCustomSearchModal(true);
   };
 
@@ -441,23 +255,30 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
       if (res.ok) {
         setShowCustomSearchModal(false);
         setCurrentCase({ ...currentCase, status: 'Searching' });
-      } else {
-        alert("Failed to initiate custom search.");
+        setExecutingCustomSearch(false);
+        return;
       }
     } catch (e) {
-      console.error(e);
-      alert("Error initiating search");
+      console.warn("Backend custom search unavailable, running in-browser:", e);
+    }
+
+    // In-browser execution of the investigator's edited query list.
+    try {
+      setShowCustomSearchModal(false);
+      await handleRunEvidenceFinder(currentCase.claim_id, customQueries);
     } finally {
       setExecutingCustomSearch(false);
     }
   };
 
-  const handleRunEvidenceFinder = async (claimIdOrDbId) => {
+  // Runs the real multi-engine evidence search for the open case and attaches
+  // the ranked findings, briefing and manual research trail to it.
+  const handleRunEvidenceFinder = async (claimIdOrDbId, overrideQueries = null) => {
     if (!currentCase) return;
     setLoading(true);
     const targetId = currentCase.claim_id || claimIdOrDbId;
     setCurrentCase(prev => ({ ...prev, status: 'Searching' }));
-    
+
     try {
       const res = await fetch(`${API_BASE}/cases/${targetId}/run-evidence-finder`, {
         method: 'POST'
@@ -467,16 +288,60 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         return;
       }
     } catch (e) {
-      console.warn("Evidence finder API offline, using fallback simulated findings:", e);
+      console.warn("Backend evidence finder unavailable, running the search in-browser:", e);
     }
-    
-    setTimeout(() => {
-      const found = FALLBACK_CASES.find(c => c.claim_id === targetId) || currentCase;
-      if (found) {
-        setCurrentCase({ ...found, status: 'Completed' });
-      }
+
+    try {
+      const search = await runSearch({
+        query: '',
+        facts: currentCase,
+        explicitQueries: overrideQueries || null,
+        options: { maxQueries: overrideQueries ? 12 : 8, limit: 60 }
+      });
+
+      // Map the ranked results onto the shape the evidence tab already renders,
+      // while keeping the full search bundle for the richer panel.
+      const evidences = search.results.map((r, i) => ({
+        id: `${targetId}-ev-${i}`,
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet,
+        source: r.source || 'Web',
+        published_date: r.publish_date || null,
+        score: Math.min(1, r.relevance_score / 100),
+        why_relevant: (r.match_reasons || []).join('; ') || 'Keyword overlap with the claim parameters.'
+      }));
+
+      const updated = {
+        ...currentCase,
+        status: 'Completed',
+        evidences,
+        search,
+        ai_summary: search.ai_summary,
+        news_check: search.total_results
+          ? `${search.total_results} public records found (${search.results.filter(r => r.case_specific).length} case-specific)`
+          : 'No public web records found',
+        audit_logs: [
+          ...(currentCase.audit_logs || []),
+          {
+            id: Date.now(),
+            action: 'Evidence Search',
+            details: `${search.query_executed.length} queries dispatched across ${(search.engines_used || []).length || 0} engines; ${search.total_results} records retained.`,
+            created_at: new Date().toISOString()
+          }
+        ]
+      };
+
+      setCurrentCase(updated);
+      setCases(prev => prev.map(c => (c.claim_id === targetId ? { ...c, ...updated } : c)));
+      setDetailTab('evidence');
+    } catch (err) {
+      console.error('Evidence search failed:', err);
+      setCurrentCase(prev => ({ ...prev, status: 'Completed' }));
+      alert(`Evidence search failed: ${err.message || err}`);
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
   // Clear All Investigation Logs & Claims
@@ -526,11 +391,14 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     }
     
     // In-browser text parser fallback
-    const parsed = parseTextDocumentInBrowser(firText, claimId);
+    const parsed = extractClaimFacts(firText, claimId);
     if (parsed) {
       setExtractedFacts(parsed.facts);
       setConfidenceScores(parsed.confidence);
-      setImportStatus(`Extracted 30-fact matrix for claim ${claimId}`);
+      setImportStatus(
+        `Extracted ${parsed.quality.fieldsPopulated} fields for claim ${claimId} ` +
+        `(${parsed.quality.criticalFound}/${parsed.quality.criticalTotal} critical fields recovered).`
+      );
     }
     setLoading(false);
   };
@@ -581,7 +449,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     try {
       if (targetFile.name.endsWith('.xlsx') || targetFile.name.endsWith('.xls')) {
         const buffer = await targetFile.arrayBuffer();
-        const parsedCases = parseExcelWorkbookInBrowser(buffer);
+        const parsedCases = await parseExcelWorkbookInBrowser(buffer);
         if (parsedCases && parsedCases.length > 0) {
           if (parsedCases.length === 1) {
             setExtractedFacts(parsedCases[0].facts);
@@ -607,18 +475,66 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         } else {
           alert("Excel file read successfully, but no matching claim headers were detected.");
         }
-      } else {
-        const text = await targetFile.text();
-        const parsed = parseTextDocumentInBrowser(text, targetFile.name.replace(/\.[^/.]+$/, ""));
-        if (parsed) {
-          setExtractedFacts(parsed.facts);
-          setConfidenceScores(parsed.confidence);
-          setImportStatus(`Extracted 30-fact claim matrix from '${targetFile.name}'`);
+      } else if (targetFile.name.toLowerCase().endsWith('.pdf')) {
+        // PDFs are binary: reading them as text yields compressed stream bytes,
+        // not the document. Pull the real text layer with pdf.js instead.
+        const extraction = await extractPdfTextFromFile(targetFile);
+        if (!extraction.hasTextLayer) {
+          alert(
+            `"${targetFile.name}" is a scanned image with no text layer, so its facts cannot be read automatically. ` +
+            `Run it through OCR first, or enter the details using the manual case parser.`
+          );
+          setLoading(false);
+          return;
         }
+        const parsed = extractClaimFacts(extraction.text, targetFile.name.replace(/\.[^/.]+$/, ''));
+        setExtractedFacts(parsed.facts);
+        setConfidenceScores(parsed.confidence);
+        setImportStatus(
+          `Read ${extraction.pagesRead} of ${extraction.pageCount} page${extraction.pageCount === 1 ? '' : 's'} of '${targetFile.name}' — ` +
+          `${parsed.quality.fieldsPopulated} fields populated, ${parsed.quality.criticalFound}/${parsed.quality.criticalTotal} critical fields recovered.` +
+          formatIngestCaveats(extraction, parsed.quality)
+        );
+      } else if (targetFile.name.toLowerCase().endsWith('.zip')) {
+        // A ZIP is binary too. It used to fall through to the plain-text branch
+        // below, which read the compressed bytes as prose and produced a case
+        // built entirely out of noise. Run it through the batch engine, which
+        // already knows how to pick the intimation sheet out of an archive and
+        // keep the policy schedule from overwriting its facts.
+        const engine = new BatchEngine({ autoSearch: false });
+        await engine.run([targetFile]);
+        const parsedCase = engine.cases.find((c) => c.facts && c.quality?.usable)
+          || engine.cases.find((c) => c.facts);
+        if (!parsedCase) {
+          const reason = engine.cases.map((c) => c.error).filter(Boolean)[0]
+            || 'no readable claim document was found inside it';
+          alert(`'${targetFile.name}' could not be processed: ${reason}`);
+          setLoading(false);
+          return;
+        }
+        setExtractedFacts(parsedCase.facts);
+        setConfidenceScores(parsedCase.confidence);
+        setImportStatus(
+          `Read '${parsedCase.sourceName}' — ${parsedCase.quality.fieldsPopulated} fields populated, ` +
+          `${parsedCase.quality.criticalFound}/${parsedCase.quality.criticalTotal} critical fields recovered.` +
+          (parsedCase.warnings?.length ? ` ${parsedCase.warnings.join(' ')}` : '')
+        );
+      } else if (/\.(txt|md|json|eml|csv)$/i.test(targetFile.name)) {
+        const text = await targetFile.text();
+        const parsed = extractClaimFacts(text, targetFile.name.replace(/\.[^/.]+$/, ''));
+        setExtractedFacts(parsed.facts);
+        setConfidenceScores(parsed.confidence);
+        setImportStatus(`Extracted ${parsed.quality.fieldsPopulated} claim fields from '${targetFile.name}'`);
+      } else {
+        // Anything else read as text is a binary file being mistaken for prose.
+        alert(
+          `'${targetFile.name}' is not a supported document. Upload a PDF intimation sheet, ` +
+          `an Excel registry (.xlsx/.xls/.csv), a case archive (.zip) or a plain text file.`
+        );
       }
     } catch (clientErr) {
       console.error("Client parsing error:", clientErr);
-      alert("Failed to process file. Please ensure it is a valid Excel (.xlsx) or document file.");
+      alert(`Failed to process '${targetFile.name}': ${clientErr.message || clientErr}`);
     } finally {
       setLoading(false);
     }
@@ -666,18 +582,18 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
       console.warn("Backend confirm offline, saving client-side case:", err);
     }
 
-    // In-browser case creation fallback
+    // In-browser case creation, followed by a real evidence search.
     const newCase = {
       id: Date.now(),
       ...extractedFacts,
-      status: "Completed",
-      overall_score: 0.85,
-      risk_level: "LOW RISK",
+      status: "Searching",
+      overall_score: null,
+      risk_level: "PENDING",
       mismatch_flags: "[]",
       evidences: [],
       image_matches: [],
       audit_logs: [
-        { id: 1, action: "Case Ingestion", details: "Investigator confirmed 30-fact claim matrix.", created_at: new Date().toISOString() }
+        { id: 1, action: "Case Ingestion", details: "Investigator confirmed the 30-header claim matrix.", created_at: new Date().toISOString() }
       ]
     };
     setCases(prev => [newCase, ...prev.filter(c => c.claim_id !== newCase.claim_id)]);
@@ -690,6 +606,95 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
     setUploadedFile(null);
     setImportStatus(null);
     setLoading(false);
+
+    try {
+      const search = await runSearch({
+        query: '',
+        facts: extractedFacts,
+        options: { maxQueries: 8, limit: 60 }
+      });
+      const completed = {
+        ...newCase,
+        status: 'Completed',
+        search,
+        ai_summary: search.ai_summary,
+        evidences: search.results.map((r, i) => ({
+          id: `${newCase.claim_id}-ev-${i}`,
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+          source: r.source || 'Web',
+          published_date: r.publish_date || null,
+          score: Math.min(1, r.relevance_score / 100),
+          why_relevant: (r.match_reasons || []).join('; ')
+        })),
+        news_check: search.total_results
+          ? `${search.total_results} public records found (${search.results.filter(r => r.case_specific).length} case-specific)`
+          : 'No public web records found',
+        audit_logs: [
+          ...newCase.audit_logs,
+          {
+            id: 2,
+            action: 'Evidence Search',
+            details: `${search.query_executed.length} queries dispatched; ${search.total_results} records retained after ranking.`,
+            created_at: new Date().toISOString()
+          }
+        ]
+      };
+      setCurrentCase(completed);
+      setCases(prev => prev.map(c => (c.claim_id === completed.claim_id ? completed : c)));
+    } catch (err) {
+      console.error('Post-ingestion evidence search failed:', err);
+      setCurrentCase(prev => (prev ? { ...prev, status: 'Completed' } : prev));
+    }
+  };
+
+  // Adds cases produced by the bulk workspace into the claims portfolio,
+  // carrying their evidence, briefing and audit trail across.
+  const handlePushBatchCases = (batchCases) => {
+    const mapped = batchCases.map((bc, idx) => {
+      const search = bc.search;
+      const specific = (search?.results || []).filter(r => r.case_specific).length;
+      return {
+        id: Date.now() + idx,
+        ...bc.facts,
+        status: 'Completed',
+        overall_score: search ? Math.min(1, (search.results[0]?.relevance_score || 0) / 100) : null,
+        risk_level: specific > 0 ? 'HIGH REVIEW' : (search?.total_results ? 'MEDIUM REVIEW' : 'LOW RISK'),
+        mismatch_flags: '[]',
+        search,
+        ai_summary: search?.ai_summary || null,
+        news_check: search
+          ? (search.total_results ? `${search.total_results} public records found (${specific} case-specific)` : 'No public web records found')
+          : 'Not searched',
+        evidences: (search?.results || []).map((r, i) => ({
+          id: `${bc.facts?.claim_id || bc.id}-ev-${i}`,
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+          source: r.source || 'Web',
+          published_date: r.publish_date || null,
+          score: Math.min(1, r.relevance_score / 100),
+          why_relevant: (r.match_reasons || []).join('; ')
+        })),
+        image_matches: [],
+        audit_logs: [
+          { id: 1, action: 'Bulk Ingestion', details: `Parsed from ${bc.sourceName}.`, created_at: new Date().toISOString() },
+          ...(search ? [{
+            id: 2,
+            action: 'Evidence Search',
+            details: `${search.query_executed.length} queries dispatched; ${search.total_results} records retained.`,
+            created_at: new Date().toISOString()
+          }] : [])
+        ]
+      };
+    });
+
+    setCases(prev => {
+      const incoming = new Set(mapped.map(m => m.claim_id));
+      return [...mapped, ...prev.filter(c => !incoming.has(c.claim_id))];
+    });
+    setImportStatus(`${mapped.length} case${mapped.length === 1 ? '' : 's'} added to the claims portfolio with their evidence findings.`);
   };
 
   // Upload Claim Photo for Image Verification
@@ -1125,11 +1130,35 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
 
         {/* VIEW 2: INGESTION HUB (QUEST API Pull is primary, Excel upload is secondary) */}
         {currentView === 'ingest' && (
-          <div style={{ maxWidth: '950px', margin: '0 auto' }}>
-            <h2>Ingestion Hub & Data Import</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-              Import claim files directly from the Quest Portal, upload the Predefined Excel Template for batch processing, or type manual facts.
+          <div style={{ maxWidth: ingestMode === 'bulk' ? '1400px' : '950px', margin: '0 auto' }}>
+            <h2>Ingestion Hub &amp; Data Import</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '18px' }}>
+              Pull claims from the Quest Portal, drop a whole folder of intimation sheets for bulk processing, or parse a
+              single document by hand.
             </p>
+
+            {/* Single vs bulk ingestion */}
+            <div style={{ display: 'flex', gap: '8px', background: '#F1F5F9', padding: '5px', borderRadius: '10px', width: 'fit-content', marginBottom: '22px', flexWrap: 'wrap' }}>
+              {[
+                ['single', 'Single document', FileText],
+                ['bulk', 'Bulk — 50+ PDFs or one Excel registry', Layers]
+              ].map(([key, label, Icon]) => (
+                <button
+                  key={key}
+                  onClick={() => setIngestMode(key)}
+                  style={{
+                    padding: '8px 18px', fontSize: '13px', fontWeight: '700', borderRadius: '7px',
+                    border: 'none', cursor: 'pointer',
+                    background: ingestMode === key ? '#FFFFFF' : 'transparent',
+                    color: ingestMode === key ? 'var(--usgi-red)' : '#64748B',
+                    boxShadow: ingestMode === key ? '0 2px 5px rgba(0,0,0,0.06)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: '7px'
+                  }}
+                >
+                  <Icon size={15} /> {label}
+                </button>
+              ))}
+            </div>
 
             {importStatus && (
               <div className="btn-success" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '13px', fontWeight: 'bold' }}>
@@ -1138,7 +1167,9 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
               </div>
             )}
 
-            {!extractedFacts ? (
+            {ingestMode === 'bulk' ? (
+              <BatchCaseWorkspace onPushCases={handlePushBatchCases} />
+            ) : !extractedFacts ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 
                 {/* PRIMARY METHOD: Quest API pull */}
@@ -1250,7 +1281,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                   </div>
                 </div>
 
-                <Claim30HeaderMatrix 
+                <ClaimFactMatrix 
                   facts={extractedFacts} 
                   confidence={confidenceScores} 
                   isEditable={true} 
@@ -1501,7 +1532,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
 
                   {/* TAB 1: EXECUTIVE 30-HEADER FACT PROFILE GRID */}
                   {detailTab === 'facts' && (
-                    <Claim30HeaderMatrix facts={currentCase} isEditable={false} />
+                    <ClaimFactMatrix facts={currentCase} isEditable={false} />
                   )}
 
                   {/* TAB 2: CONDENSED STRUCTURED AI EVIDENCE SUMMARY */}
@@ -1514,7 +1545,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                             ⚡ Multi-Source Evidence Discovery & AI Synthesis In Progress
                           </p>
                           <div className="loading-subtext" style={{ maxWidth: '520px', margin: '0 auto', lineHeight: '1.6' }}>
-                            Auditing Google News RSS, Regional e-Paper archives, Instagram/YouTube, and compiling structured executive AI evidence report...
+                            Auditing Google News RSS, Regional e-Paper archives and YouTube, and compiling the structured evidence report...
                           </div>
                         </div>
                       ) : currentCase.ai_summary ? (
@@ -1562,7 +1593,15 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                   )}
 
                   {/* TAB 3: EVIDENCE LINKS WITH ENHANCED SCORES */}
-                  {detailTab === 'evidence' && (
+                  {detailTab === 'evidence' && currentCase.search && (
+                    <EvidenceResultsPanel
+                      search={currentCase.search}
+                      title={`${currentCase.search.total_results} public record${currentCase.search.total_results === 1 ? '' : 's'} for ${currentCase.claim_id}`}
+                      subtitle={`${currentCase.search.query_executed.length} queries dispatched from this claim's 30-header facts`}
+                    />
+                  )}
+
+                  {detailTab === 'evidence' && !currentCase.search && (
                     <div>
                       {currentCase.status === 'Searching' ? (
                         <div className="loading-container">
@@ -1571,7 +1610,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                             ⚡ Multi-Source Evidence Discovery In Progress
                           </p>
                           <div className="loading-subtext" style={{ maxWidth: '480px', lineHeight: '1.5' }}>
-                            Dispatching queries to Google News RSS, Regional e-Paper archives, Instagram/YouTube, and spatial geocoding...
+                            Dispatching queries to Google News RSS, Regional e-Paper archives, YouTube and spatial geocoding...
                           </div>
                         </div>
                       ) : !currentCase.evidences || currentCase.evidences.length === 0 ? (
@@ -2013,7 +2052,7 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
               <input 
                 type="text" 
                 className="form-control" 
-                placeholder="e.g. site:instagram.com &quot;Gagan Chhabra&quot; 2490 OR बारात हादसा" 
+                placeholder="e.g. site:bhaskar.com Gangrar सड़क हादसा 2026-05-18" 
                 value={newQueryInput} 
                 onChange={(e) => setNewQueryInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCustomQuery()}

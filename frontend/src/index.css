@@ -674,3 +674,17 @@ h1, h2, h3, h4, h5, h6 {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ---------------------------------------------------------------------------
+   Bulk case workspace — case picker beside the selected case's evidence.
+   Below 1100px the two-column split becomes unusable, so it stacks and the
+   picker stops being sticky (a sticky rail in a stacked layout traps scroll).
+--------------------------------------------------------------------------- */
+@media (max-width: 1100px) {
+  .batch-split {
+    grid-template-columns: 1fr !important;
+  }
+  .batch-split > .card:first-child {
+    position: static !important;
+  }
+}

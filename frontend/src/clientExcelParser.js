@@ -1,4 +1,13 @@
-import * as XLSX from 'xlsx';
+import { isMeaningful, calendarParts } from './lib/searchIntel.js';
+import { ALL_FIELDS } from './lib/claimFactExtractor.js';
+
+// xlsx is ~430 kB and is only needed when a workbook is actually read.
+// Loading it on demand keeps it out of the initial page bundle.
+let xlsxPromise = null;
+function loadXLSX() {
+  if (!xlsxPromise) xlsxPromise = import('xlsx');
+  return xlsxPromise;
+}
 
 // 30 Core Headers defined by Universal Sompo Claim Investigation Standards
 export const CANONICAL_30_HEADERS = [
@@ -25,9 +34,16 @@ const HEADER_SYNONYMS = {
   "vehicle_make": ["vehicle make", "make", "manufacturer", "brand"],
   "vehicle_model": ["vehicle model", "model", "variant"],
   "driver_name": ["driver name", "driver", "name of driver", "operator name"],
-  "driver_contact_no": ["driver contact", "driver dl no", "driving license", "dl number", "driver dl"],
+  // A driving licence number is not a telephone number and no longer shares
+  // this column: a registry that carries both must land them in both fields.
+  "driver_contact_no": ["driver contact", "driver contact no", "driver mobile", "driver phone"],
+  "driver_licence_no": ["driver dl no", "dl number", "dl no", "driving license", "driving licence", "driver dl", "licence no", "license no"],
   "accident_date_time": ["date of accident", "accident date", "loss date", "date & time of accident", "accident_date_time", "date and time of accident"],
-  "loss_location": ["loss location", "spot of accident", "accident spot", "location of accident", "place of accident"],
+  // "accident location" is the single most common way a client spreadsheet
+  // labels this column, and its absence here sent the whole value to
+  // additional_details — leaving cases with no registration number with no
+  // searchable anchor at all.
+  "loss_location": ["loss location", "accident location", "spot of accident", "accident spot", "location of accident", "place of accident", "accident place", "place of loss", "loss place", "accident site", "site of accident"],
   "accident_location_city": ["city", "accident city", "accident location city", "town"],
   "accident_location_state": ["state", "accident state", "accident location state"],
   "accident_location_region": ["region", "zone", "accident location region"],
@@ -53,26 +69,82 @@ const HEADER_SYNONYMS = {
   "io_name": ["investigating officer", "io name", "sub-inspector name"]
 };
 
+/**
+ * Read one spreadsheet cell as a claim fact.
+ *
+ * Registries carry placeholders as often as they carry values — "NEW---" for a
+ * vehicle awaiting registration, "NA", "-", "Pending". Storing those at full
+ * confidence presents a placeholder to the reviewer as an established fact and
+ * sends the evidence search hunting for a number plate spelt "NEW---". They are
+ * reported as an absence with a note instead, which is how the PDF path already
+ * treats them.
+ */
+function readCell(value) {
+  if (value === undefined || value === null) return { text: '', placeholder: false };
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return { text: '', placeholder: false };
+    // See calendarParts: a date cell is a calendar date, and xlsx delivers it
+    // just short of local midnight. Formatting through toISOString() shifted
+    // every Indian claim back a day.
+    const [y, m, d] = calendarParts(value);
+    return { text: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`, placeholder: false };
+  }
+  const text = String(value).trim();
+  if (!text) return { text: '', placeholder: false };
+  if (!isMeaningful(text)) return { text: '', placeholder: true, raw: text };
+  return { text, placeholder: false };
+}
+
 function normalizeText(text) {
   if (!text) return "";
   return String(text).toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Resolve a spreadsheet header to a canonical field by BEST match, not by
+ * first match.
+ *
+ * First-match-wins is wrong here because the synonym lists overlap: an
+ * "Insured Address" column contains the substring "insured", so it used to be
+ * captured by `insured_name` (declared earlier) and every claim ended up with
+ * a postal address as the claimant's name — which then became the name the
+ * evidence search looked for. Scoring by specificity fixes that: an exact
+ * synonym beats a prefix, which beats a bare substring, and longer synonyms
+ * outrank shorter ones.
+ */
 function matchHeader(cellText) {
   const norm = normalizeText(cellText);
   if (!norm) return null;
+
+  let best = null;
+  let bestScore = 0;
+
   for (const [canon, syns] of Object.entries(HEADER_SYNONYMS)) {
     for (const syn of syns) {
       const normSyn = normalizeText(syn);
-      if (norm === normSyn || norm.startsWith(normSyn) || norm.includes(normSyn)) {
-        return canon;
+      if (!normSyn) continue;
+
+      let score = 0;
+      if (norm === normSyn) score = 1000 + normSyn.length;
+      else if (norm.startsWith(`${normSyn} `)) score = 600 + normSyn.length;
+      else if (norm.endsWith(` ${normSyn}`)) score = 500 + normSyn.length;
+      else if (norm.includes(` ${normSyn} `)) score = 400 + normSyn.length;
+      // A bare substring is the weakest signal, and is only trustworthy for a
+      // synonym long enough not to collide across fields.
+      else if (normSyn.length >= 5 && norm.includes(normSyn)) score = 100 + normSyn.length;
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = canon;
       }
     }
   }
-  return null;
+
+  return best;
 }
 
-export function parseExcelWorkbookInBrowser(arrayBuffer) {
+export async function parseExcelWorkbookInBrowser(arrayBuffer) {
+  const XLSX = await loadXLSX();
   const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
   const allParsedCases = [];
 
@@ -85,23 +157,29 @@ export function parseExcelWorkbookInBrowser(arrayBuffer) {
     // Scan for Header Row
     let headerRowIdx = -1;
     let headerMapping = {}; // colIdx -> canonicalKey
+    let extraMapping = {};  // colIdx -> original header text, for unknown columns
 
     for (let r = 0; r < Math.min(15, rawData.length); r++) {
       const row = rawData[r];
       let matches = 0;
       const currentMap = {};
+      const currentExtras = {};
       row.forEach((cell, cIdx) => {
         if (cell) {
           const canon = matchHeader(String(cell));
           if (canon) {
             currentMap[cIdx] = canon;
             matches++;
+          } else {
+            // A column the schema does not know is still data on the registry.
+            currentExtras[cIdx] = String(cell).trim();
           }
         }
       });
       if (matches >= 2 && matches > Object.keys(headerMapping).length) {
         headerRowIdx = r;
         headerMapping = currentMap;
+        extraMapping = currentExtras;
       }
     }
 
@@ -113,27 +191,40 @@ export function parseExcelWorkbookInBrowser(arrayBuffer) {
 
         const caseFacts = {};
         const confidences = {};
+        const notes = [];
 
-        CANONICAL_30_HEADERS.forEach(h => {
+        // An unpopulated field carries no confidence. It used to default to
+        // 0.5, which drew a half-certain badge next to an empty cell.
+        ALL_FIELDS.forEach(h => {
           caseFacts[h] = "";
-          confidences[h] = 0.5;
+          confidences[h] = 0;
         });
 
         Object.entries(headerMapping).forEach(([cIdx, canon]) => {
-          const val = row[cIdx];
-          if (val !== undefined && val !== null && String(val).trim() !== "") {
-            caseFacts[canon] = typeof val === 'object' && val instanceof Date ? val.toISOString().split('T')[0] : String(val).trim();
+          const cell = readCell(row[cIdx]);
+          if (cell.text) {
+            caseFacts[canon] = cell.text;
             confidences[canon] = 1.0;
+          } else if (cell.placeholder && canon === 'vehicle_numbers') {
+            notes.push(`Registry records the vehicle number as "${cell.raw}" — there is no number plate to search.`);
           }
         });
 
+        // Unknown columns are kept verbatim rather than dropped, so a registry
+        // with extra columns loses nothing on import.
+        caseFacts.additional_details = Object.entries(extraMapping)
+          .map(([cIdx, label]) => ({ label, value: readCell(row[cIdx]).text }))
+          .filter((d) => d.value);
+
         if (!caseFacts.claim_id) {
           caseFacts.claim_id = `EXCEL-${sheetName.replace(/\s+/g, '_')}-${r}`;
+          confidences.claim_id = 0.2;
         }
 
         allParsedCases.push({
           facts: caseFacts,
           confidence: confidences,
+          notes,
           sheetName: sheetName
         });
       }
@@ -141,20 +232,21 @@ export function parseExcelWorkbookInBrowser(arrayBuffer) {
       // Check for Transposed Key-Value format (Column A = Key, Column B = Value)
       const caseFacts = {};
       const confidences = {};
-      CANONICAL_30_HEADERS.forEach(h => {
+      const notes = [];
+      ALL_FIELDS.forEach(h => {
         caseFacts[h] = "";
-        confidences[h] = 0.5;
+        confidences[h] = 0;
       });
 
       let foundTransposed = 0;
       rawData.forEach(row => {
         if (row && row.length >= 2) {
           const k = row[0];
-          const v = row[1];
-          if (k && v !== undefined && v !== null && String(v).trim() !== "") {
+          const cell = readCell(row[1]);
+          if (k && cell.text) {
             const canon = matchHeader(String(k));
             if (canon) {
-              caseFacts[canon] = typeof v === 'object' && v instanceof Date ? v.toISOString().split('T')[0] : String(v).trim();
+              caseFacts[canon] = cell.text;
               confidences[canon] = 1.0;
               foundTransposed++;
             }
@@ -169,6 +261,7 @@ export function parseExcelWorkbookInBrowser(arrayBuffer) {
         allParsedCases.push({
           facts: caseFacts,
           confidence: confidences,
+          notes,
           sheetName: sheetName
         });
       }

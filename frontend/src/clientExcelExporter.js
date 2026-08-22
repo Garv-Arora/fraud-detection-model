@@ -1,7 +1,16 @@
-import * as XLSX from 'xlsx';
+import { EXTENDED_FIELDS, humaniseFieldName } from './lib/claimFactExtractor.js';
 
-export function exportCaseToExcelInBrowser(caseObj) {
+
+// Loaded on demand so the spreadsheet library stays out of the initial bundle.
+let xlsxPromise = null;
+function loadXLSX() {
+  if (!xlsxPromise) xlsxPromise = import('xlsx');
+  return xlsxPromise;
+}
+
+export async function exportCaseToExcelInBrowser(caseObj) {
   if (!caseObj) return;
+  const XLSX = await loadXLSX();
 
   const claimId = caseObj.claim_id || 'CLAIM_EXPORT';
   
@@ -17,7 +26,7 @@ export function exportCaseToExcelInBrowser(caseObj) {
     { key: "vehicle_make", label: "8. Vehicle Make", val: caseObj.vehicle_make },
     { key: "vehicle_model", label: "9. Vehicle Model", val: caseObj.vehicle_model },
     { key: "driver_name", label: "10. Driver Name", val: caseObj.driver_name },
-    { key: "driver_contact_no", label: "11. Driver Contact No / DL", val: caseObj.driver_contact_no },
+    { key: "driver_contact_no", label: "11. Driver Contact No.", val: caseObj.driver_contact_no },
     { key: "loss_location", label: "12. Spot of Accident", val: caseObj.loss_location },
     { key: "accident_location_city", label: "13. Accident Location City", val: caseObj.accident_location_city },
     { key: "accident_location_state", label: "14. Accident Location State", val: caseObj.accident_location_state },
@@ -76,14 +85,36 @@ export function exportCaseToExcelInBrowser(caseObj) {
 
   const ws2 = XLSX.utils.aoa_to_sheet(evRows);
 
+  // Sheet 3: everything else the source document carried.
+  //
+  // The 30-fact matrix is the client's fixed contract and cannot grow, but the
+  // intimation sheet and policy schedule carry roughly forty more values —
+  // engine and chassis numbers, the driving licence number, financier, nominee,
+  // IDV and premium. Dropping them on export would throw away most of what was
+  // parsed, so they are published here instead.
+  const extraRows = [["Field", "Value"]];
+  EXTENDED_FIELDS.forEach((key) => {
+    const val = caseObj[key];
+    if (val !== undefined && val !== null && String(val).trim() !== "") {
+      extraRows.push([humaniseFieldName(key), String(val)]);
+    }
+  });
+  (caseObj.additional_details || []).forEach((d) => {
+    if (d && d.label && d.value) extraRows.push([`${d.label} (as printed)`, String(d.value)]);
+  });
+  if (extraRows.length === 1) extraRows.push(["No additional fields were present in the source document.", ""]);
+  const ws3 = XLSX.utils.aoa_to_sheet(extraRows);
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, "30-Fact Matrix");
+  XLSX.utils.book_append_sheet(wb, ws3, "Full Document Extract");
   XLSX.utils.book_append_sheet(wb, ws2, "Public Evidence");
 
   XLSX.writeFile(wb, `UniversalSompo_Claim_${claimId}.xlsx`);
 }
 
-export function downloadExcelTemplateInBrowser() {
+export async function downloadExcelTemplateInBrowser() {
+  const XLSX = await loadXLSX();
   const headers = [
     "Claim ID", "Policy Information", "Supporting Information", "Insured Name",
     "Insured Address", "Insured Contact No", "Vehicle Registration No", "Vehicle Make",

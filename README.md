@@ -6,12 +6,15 @@ An AI-powered Risk Control Unit (RCU) Claims Ingestion, Evidence Discovery, and 
 
 ## 🌟 Features
 
-- **Automated Document Ingestion**: Ingest claim cases via multi-file ZIP packages (Intimation PDFs, DL, RC, Spot/Crash photos) or bulk Excel spreadsheets matching the **Tera Bot 30-Header schema**.
-- **AI-Powered Fact Extraction**: Extracts 30 standard claim data points from scanned PDFs and unstructured text using Google Gemini AI.
-- **Web & News Evidence Search**: Automatically searches web news sources, police records, and public registries (via DuckDuckGo) for accident confirmation, timeline verification, and entity validation.
+- **Bulk document ingestion**: Drop 50+ PDF intimation sheets, ZIP case archives, or a single Excel registry carrying 50 claim rows. Documents are parsed and searched **concurrently** — evidence for the first cases starts arriving while the remaining files are still being read — and each case's own search is reviewable separately.
+- **Real client-side PDF parsing**: PDF text is extracted with `pdf.js` and visual line/column structure is reconstructed, so the two-column label/value layout of an intimation sheet survives into the 30-header extractor. Scanned PDFs with no text layer are reported as such rather than silently yielding an empty claim.
+- **Live multi-engine evidence search**: Google News RSS (English **and** Hindi editions), Bing News RSS and DuckDuckGo, fanned out server-side from a Netlify Function. Optional real Google SERP via `SERPER_API_KEY` or `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX`.
+- **Keyword-specific query planning**: Queries are generated in precision tiers from the case's own anchors — every written form of the registration plate, distinctive party names, accident spot plus loss date, Hindi vernacular phrasing used by regional dailies, and video archives. Tiers are interleaved so the vernacular tier always gets dispatched.
+- **Explained relevance ranking**: Every result carries the reasons it ranked where it did (plate match, named party, location, publication within the loss-date window, source credibility, casualty-count agreement). Syndicated copies of one story collapse into a single record with a corroboration count.
+- **Google Research Trail**: Every search also produces the exact clickable search URLs an investigator would type by hand — plain Google, Google News, Verbatim, a date-locked T-1→T+3 window, `site:`-restricted queries against twelve Indian dailies, ePaper archives, YouTube, Google Maps and the Vahan registry. These work with no network dependency and no API key, which is what makes them the reliable fallback for district-level incidents.
+- **Evidence-grounded briefings**: The synthesized summary cites only records that were actually returned. When nothing is found it says so plainly, and states that a nil digital footprint is not by itself a fraud indicator.
 - **Multi-Factor Risk Scoring**: Calculates overall claim risk score based on mismatch detection across dates, locations, vehicle numbers, driver identities, and news coverage.
-- **Interactive Dashboard**: Modern React + Vite frontend for claim reviewers, presenting real-time risk scores, claim details, evidence links, and audit logs.
-- **One-Click Export**: Export verified claims into the official **Tera Bot 30-Header Excel format** or generate print-ready HTML/PDF evidence summary packs.
+- **One-Click Export**: 30-header Excel export, a batch register CSV, the full evidence bundle as JSON, and the research trail as CSV.
 
 ---
 
@@ -34,11 +37,22 @@ Universal Sompo/
 │   ├── search_engine.py      # DuckDuckGo search integration
 │   └── test_app.py           # Integration & unit test suite
 ├── frontend/
+│   ├── netlify/functions/
+│   │   └── search.mjs        # Serverless multi-engine live search (see below)
 │   ├── public/               # Static assets & icons
-│   ├── src/                  # React components & UI logic
+│   ├── src/
+│   │   ├── lib/
+│   │   │   ├── searchIntel.js        # Anchor extraction, tiered query planning, ranking
+│   │   │   ├── googleDeepLinks.js    # "Type it into Google yourself" research trail
+│   │   │   ├── searchService.js      # Search orchestration + transport fallback
+│   │   │   ├── evidenceSummary.js    # Evidence-grounded briefing generator
+│   │   │   ├── pdfTextExtractor.js   # pdf.js text layer + line reconstruction
+│   │   │   ├── claimFactExtractor.js # 30-header extraction from document text
+│   │   │   └── batchEngine.js        # Concurrent parse + search pipeline
+│   │   └── components/       # React UI (Search Lab, batch workspace, results panel)
 │   ├── index.html            # Main HTML entrypoint
 │   ├── package.json          # Frontend dependencies & scripts
-│   └── vite.config.js        # Vite bundler configuration
+│   └── vite.config.js        # Vite config (also serves the search function in dev)
 ├── samples/
 │   ├── CL26140317.zip        # Real Universal Sompo sample claim package 1
 │   ├── CL26148443.zip        # Real Universal Sompo sample claim package 2
@@ -130,6 +144,61 @@ Tests verify:
 3. Fetching case lists with 30 Tera Bot properties.
 4. Tera Bot 30-header Excel report generation.
 5. Batch Excel spreadsheet upload and row parsing.
+
+
+---
+
+## 🔎 How search works
+
+The deployed site is a static SPA, so a browser cannot call Google News, Bing or
+DuckDuckGo directly — CORS blocks all three. The search therefore runs in a
+**Netlify Function** (`frontend/netlify/functions/search.mjs`), which fans the
+queries out server-side and returns real, live, keyword-specific results.
+
+`searchService.js` picks a transport once per session and caches the choice, so a
+50-case batch does not pay 50 failed round-trips:
+
+| Order | Transport | When it is used |
+|---|---|---|
+| 1 | `/api/search` — Netlify Function | Production, and local `npm run dev` |
+| 2 | `/api/search/workbench` — FastAPI | When the Python backend is running (`python run.py`) |
+| 3 | offline | Neither reachable — the Google Research Trail is still fully functional and is clearly labelled as manual-links-only |
+
+**Local development**: `vite.config.js` mounts the same function module on the
+dev server, so `npm run dev` has a working `/api/search` without needing the
+Netlify CLI or the Python backend.
+
+**Optional real Google results**: set either `SERPER_API_KEY`, or
+`GOOGLE_CSE_KEY` together with `GOOGLE_CSE_CX`, in the Netlify site environment.
+Without a key the function still returns live results from Google News RSS
+(English and Hindi), Bing News RSS and DuckDuckGo.
+
+### Why there is no social-media search
+
+Instagram and Facebook discovery was built, tested against every free anonymous
+route, and then removed because it does not work without paying for it.
+
+Measured, not assumed — `site:instagram.com` / `site:facebook.com` sweeps across
+DuckDuckGo, Bing web, Mojeek, SearxNG and Marginalia returned **zero genuine post
+URLs**. DuckDuckGo and Mojeek answer with a bot challenge; SearxNG returns login
+redirects; Bing ignores the `site:` filter on those domains entirely. Across five
+best-case queries designed to maximise the hit rate, 68 results contained no real
+post — only platform homepages and login walls. Neither platform exposes post
+content to general web crawlers any more.
+
+Consequently any URL on `instagram.com`, `facebook.com`, `fb.watch`, `x.com` or
+`threads.net` is now **rejected outright** as evidence, so a login wall can never
+be filed as a corroborating source. Reaching real posts requires a paid SERP API
+(`SERPER_API_KEY`) or a signed-in session; if a key is configured the results it
+returns flow through the normal ranking path.
+
+### A note on evidence integrity
+
+Nothing in the search path fabricates a result. Earlier revisions shipped a
+client-side "synthesizer" that returned hardcoded scenario data with invented
+article URLs; that module has been removed. If a claim has no digital footprint
+the system reports zero records and says so, because a fabricated evidence link
+in a fraud file is worse than no link at all.
 
 ---
 

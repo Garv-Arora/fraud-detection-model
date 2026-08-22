@@ -133,9 +133,9 @@ Investigation into claim **CL24181742** uncovered a critical **Pre-Inception Los
     evidences: [
       {
         id: 101,
-        source: "Meta",
-        title: "Meta (Instagram Post) by @_Its_vansh_2490: Vehicle damage reel uploaded on 11-07-2024",
-        url: "https://www.instagram.com/p/C9U1x2490/",
+        source: "Web",
+        title: "Prior-damage check for UK-07-CD-2490 (open search — verify manually)",
+        url: "https://www.google.com/search?q=%22UK-07-CD-2490%22+accident+Chidderwala&hl=en&gl=in",
         snippet: "Instagram Reel uploaded on July 11, 2024 showing front cabin damage of vehicle UK-07-CD-2490. Upload timestamp (11.07.2024) is prior to the policy commencement date of 12.07.2024.",
         score: 0.95,
         published_date: "2024-07-11",
@@ -144,8 +144,8 @@ Investigation into claim **CL24181742** uncovered a critical **Pre-Inception Los
       {
         id: 102,
         source: "News",
-        title: "Amar Ujala Dehradun: Chidderwala Haridwar Road Traffic Collision Update",
-        url: "https://www.amarujala.com/uttar-pradesh/mathura",
+        title: "Amar Ujala archive search — Chidderwala / Haridwar road collision",
+        url: "https://www.google.com/search?q=site%3Aamarujala.com+Chidderwala+Haridwar+road+accident&hl=en&gl=in",
         snippet: "Vehicle UK-07-CD-2490 was reported involved in a minor collision near Chidderwala Haridwar road prior to the weekend.",
         score: 0.78,
         published_date: "2024-07-11",
@@ -157,7 +157,7 @@ Investigation into claim **CL24181742** uncovered a critical **Pre-Inception Los
         id: 201,
         image_name: "bolero_front_cabin.jpg",
         status: "Pre-Inception Video Upload",
-        matched_url: "https://www.instagram.com/p/C9U1x2490/",
+        matched_url: "https://www.google.com/search?q=%22UK-07-CD-2490%22+damage&tbm=isch&hl=en&gl=in",
         why_matched: "Social Media Forensics: Instagram damage video uploaded on 11.07.2024 (predates policy inception date 12.07.2024)."
       }
     ],
@@ -233,7 +233,7 @@ Investigation into claim **CL26123008** identified multiple severe non-disclosur
         id: 303,
         image_name: "stunt_swift_modification.jpg",
         status: "Hazardous Stunt Use",
-        matched_url: "https://www.instagram.com/explore/search/keyword/?q=JK02+Swift+car+stunt+drift+Akhnoor",
+        matched_url: "https://www.youtube.com/results?search_query=JK02+Swift+car+stunt+drift+Akhnoor",
         why_matched: "Visual match with public social media stunt archive."
       }
     ],
@@ -297,8 +297,8 @@ Comprehensive investigation into claim **CL26121725** confirmed that private car
       {
         id: 401,
         source: "News",
-        title: "सुरियावां में बारात जा रही कार अनियंत्रित होकर ट्रक से टकराई, दूल्हा समेत 5 घायल",
-        url: "https://www.bhaskar.com/local/uttar-pradesh/bhadohi/news/wedding-car-accident-in-suriyawan-durgaganj-132890123.html",
+        title: "Dainik Bhaskar archive search — Suriyawan / Durgaganj wedding-party collision",
+        url: "https://www.google.com/search?q=site%3Abhaskar.com+%E0%A4%B8%E0%A5%81%E0%A4%B0%E0%A4%BF%E0%A4%AF%E0%A4%BE%E0%A4%B5%E0%A4%81+%E0%A4%A6%E0%A5%81%E0%A4%B0%E0%A5%8D%E0%A4%97%E0%A4%BE%E0%A4%97%E0%A4%82%E0%A4%9C+%E0%A4%B8%E0%A4%A1%E0%A4%BC%E0%A4%95+%E0%A4%B9%E0%A4%BE%E0%A4%A6%E0%A4%B8%E0%A4%BE&hl=en&gl=in",
         snippet: "भदोही के दुर्गागंज पुलिस स्टेशन के पास सोमवार रात भीषण हादसा हुआ। बारात में जा रही कार अनियंत्रित होकर ट्रक में पीछे से जा घुसी। कार में दूल्हा मनजीत पाल, वीरू पाल, स्वीटी पाल सवार थे।",
         score: 0.96,
         published_date: "2026-05-01",
