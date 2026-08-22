@@ -24,6 +24,7 @@ import { buildShards, harvestEntities } from '../src/lib/searchService.js';
 import { phoneticEquals, phoneticKey, indicToLatin } from '../src/lib/transliterate.js';
 import { __test as fn } from '../netlify/functions/search.mjs';
 import handler from '../netlify/functions/search.mjs';
+import { socialTierNotice, isSocialRecord } from '../src/lib/socialEvidence.js';
 const { assertFeed } = fn;
 
 let pass = 0;
@@ -950,6 +951,33 @@ const SHORT = 'Jaipur Sikar highway dumper accident';
 
   if (saved === undefined) delete process.env.SERPER_API_KEY;
   else process.env.SERPER_API_KEY = saved;
+}
+
+
+// -- 36. the empty social tier explains itself ------------------------------
+//
+// The UI half of the same guarantee as 35: an investigator looking at a claim
+// with no social evidence must be able to tell whether social was searched and
+// found nothing, or was never searched at all.
+{
+  const missingKey = [{ engine: 'Serper social', reason: 'SERPER_API_KEY is not configured, so Facebook and Instagram were not searched' }];
+  const throttled = [{ engine: 'Serper social', reason: 'Serper social 429' }];
+  const otherEngine = [{ engine: 'DuckDuckGo', reason: 'bot challenge' }];
+
+  check('36a no notice when social results exist',
+    socialTierNotice(5, missingKey) === null);
+  check('36b no notice when nothing reported the tier',
+    socialTierNotice(0, otherEngine) === null);
+  check('36c an unconfigured key is explained',
+    /no SERP key is configured/i.test(socialTierNotice(0, missingKey) || ''), socialTierNotice(0, missingKey));
+  check('36d the notice says how to fix it',
+    /SERPER_API_KEY in \.env/.test(socialTierNotice(0, missingKey) || ''));
+  check('36e a provider failure is reported verbatim, not as a config problem',
+    /429/.test(socialTierNotice(0, throttled) || '') && !/no SERP key/i.test(socialTierNotice(0, throttled) || ''),
+    socialTierNotice(0, throttled));
+  check('36f malformed entries do not throw', (() => {
+    try { socialTierNotice(0, [null, {}, { engine: null }]); return true; } catch { return false; }
+  })());
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

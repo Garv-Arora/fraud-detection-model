@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 
 import GeminiAiSummaryCard from './GeminiAiSummaryCard';
+import {
+  PLATFORMS, MATCHED_FIELD_LABELS as FIELD_LABELS, isSocialRecord, socialTierNotice
+} from '../lib/socialEvidence';
 
 const GROUP_ICONS = {
   search: Search,
@@ -18,34 +21,6 @@ const GROUP_ICONS = {
 
 const CATEGORIES = ['ALL', 'News', 'Social', 'YouTube', 'Web'];
 
-// Platform presentation. `label` is what the investigator reads; the URL shown
-// and opened is always the one the search provider returned, never rebuilt.
-const PLATFORMS = {
-  facebook: { label: 'Facebook', bg: '#E7F0FE', fg: '#1877F2', hosts: ['facebook.com', 'fb.com', 'fb.watch'] },
-  instagram: { label: 'Instagram', bg: '#FCE7F3', fg: '#C13584', hosts: ['instagram.com'] }
-};
-
-// A social record is one a keyed SERP provider vouched for AND whose URL is
-// still on that platform's own host.
-//
-// The host is re-checked here rather than trusted from the flag. This card
-// renders a "View Original Post" button, so the flag decides where an
-// investigator is sent; a record asserting `platform: facebook` while pointing
-// somewhere else must not be badged as a Facebook post. The mapper cannot
-// currently produce such a record — it derives the platform from the host — but
-// the check is cheap and the failure it prevents is not.
-function isSocialRecord(record) {
-  if (record.source_type !== 'social_media') return false;
-  const pf = PLATFORMS[record.platform];
-  if (!pf) return false;
-  try {
-    const host = new URL(record.url).hostname.replace(/^www\./, '').toLowerCase();
-    return (pf.hosts || []).some((h) => host === h || host.endsWith(`.${h}`));
-  } catch {
-    return false;
-  }
-}
-
 function categoryOf(record) {
   const url = (record.url || '').toLowerCase();
   if (isSocialRecord(record)) return 'Social';
@@ -53,11 +28,6 @@ function categoryOf(record) {
   if (record.source === 'News' || record.authoritative) return 'News';
   return 'Web';
 }
-
-const FIELD_LABELS = {
-  person: 'Person', vehicle: 'Vehicle', location: 'Location',
-  date: 'Date', incident: 'Incident', operator: 'Operator'
-};
 
 function relevanceColour(score) {
   if (score >= 75) return { bg: '#DCFCE7', fg: '#15803D', border: '#BBF7D0' };
@@ -123,17 +93,10 @@ export default function EvidenceResultsPanel({ search, title, subtitle, compact 
     return out;
   }, [results]);
 
-  // Why the social tier is empty, when it is. A silent absence reads exactly
-  // like "no posts exist", which is the one thing it must not be confused with.
-  const socialNotice = useMemo(() => {
-    if (counts.Social > 0) return null;
-    const entry = (search?.engines_unavailable || [])
-      .find((e) => /serper social/i.test(e.engine || ''));
-    if (!entry) return null;
-    return /SERPER_API_KEY/i.test(entry.reason || '')
-      ? 'Facebook and Instagram were not searched — SERPER_API_KEY is not configured for this deployment.'
-      : `Facebook and Instagram could not be searched: ${entry.reason}`;
-  }, [counts.Social, search]);
+  const socialNotice = useMemo(
+    () => socialTierNotice(counts.Social, search?.engines_unavailable),
+    [counts.Social, search]
+  );
 
   const bandCounts = useMemo(() => {
     const out = { CONFIRMED: 0, STRONG: 0, BACKGROUND: 0 };

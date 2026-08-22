@@ -96,18 +96,58 @@ Open your browser and navigate to **`http://localhost:8000`** to access the dash
 
 ## 🔑 Environment Configuration
 
-Create a `.env` file in the root directory (or edit the auto-generated `.env`):
+Copy the template and fill in what you have. Every key is optional.
 
-```env
-# Google Gemini API Key for AI extraction & semantic analysis
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Server Configuration
-HOST=0.0.0.0
-PORT=8000
+```bash
+cp .env.example .env
 ```
 
-> **Note**: If `GEMINI_API_KEY` is not set, the system seamlessly falls back to regex-based extraction and heuristic scoring rules.
+`.env` is gitignored and must never be committed.
+
+### Running the Search Lab on localhost
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:3000
+```
+
+The Vite dev server runs the real `/api/search` function in-process, so live
+search works locally without the Netlify CLI or the Python backend. Provider
+keys are read from `.env` at the repository root (or in `frontend/`) and passed
+to that function through `process.env` — **server-side only; they are never
+bundled into the client.**
+
+> If you add a key to `.env` while the dev server is running, **restart it** —
+> the environment is read at startup.
+
+### Enabling Facebook and Instagram discovery
+
+Social discovery needs a SERP index. Neither platform exposes post content to
+anonymous crawlers, so the free engines return only login walls; a paid index is
+the only route to publicly indexed posts.
+
+```env
+SERPER_API_KEY=your_serper_key_here      # https://serper.dev — free tier available
+```
+
+Restart `npm run dev`, then run any search: a **Social** filter appears beside
+News / YouTube / Web, each post carries a Facebook or Instagram badge, the page
+name, a matched-field checklist and a **View Original Post** button opening the
+exact URL the provider returned.
+
+Without the key nothing breaks. News and web search run exactly as before across
+thirteen Indian-language editions, and the Search Lab states plainly that the
+social tier was not searched — it is never left silently empty.
+
+### Other keys
+
+| Key | Effect if absent |
+|---|---|
+| `SERPER_API_KEY` | No social discovery, no live Google SERP. Everything else unchanged. |
+| `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX` | Fallback Google provider, used only when `SERPER_API_KEY` is absent. |
+| `GEMINI_API_KEY` | Falls back to regex extraction and heuristic scoring. |
+| `HOST` / `PORT` | Only used by the optional Python backend (`python run.py`). |
 
 ---
 

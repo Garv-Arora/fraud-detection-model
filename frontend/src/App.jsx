@@ -10,6 +10,7 @@ import SearchWorkbench from './components/SearchWorkbench';
 import GeminiAiSummaryCard from './components/GeminiAiSummaryCard';
 import LoginPage from './components/LoginPage';
 import EvidenceResultsPanel from './components/EvidenceResultsPanel';
+import { PLATFORMS as SOCIAL_PLATFORMS } from './lib/socialEvidence';
 import BatchCaseWorkspace from './components/BatchCaseWorkspace';
 import { BatchEngine } from './lib/batchEngine';
 import { FALLBACK_CASES } from './mockFallbackData';
@@ -23,12 +24,6 @@ import { extractAnchors, buildQueryPlan } from './lib/searchIntel';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-// Presentation for a discovered social post on the Claims Portfolio evidence
-// tab. The URL opened is always the one the provider returned.
-const SOCIAL_PLATFORMS = {
-  facebook: { label: 'Facebook', bg: '#E7F0FE', fg: '#1877F2' },
-  instagram: { label: 'Instagram', bg: '#FCE7F3', fg: '#C13584' }
-};
 
 /**
  * Everything about an ingest the reviewer must know before trusting the record:
