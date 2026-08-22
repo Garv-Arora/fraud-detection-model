@@ -23,6 +23,7 @@ import {
 import { buildShards, harvestEntities } from '../src/lib/searchService.js';
 import { phoneticEquals, phoneticKey, indicToLatin } from '../src/lib/transliterate.js';
 import { __test as fn } from '../netlify/functions/search.mjs';
+import handler from '../netlify/functions/search.mjs';
 const { assertFeed } = fn;
 
 let pass = 0;
@@ -916,6 +917,39 @@ const SHORT = 'Jaipur Sikar highway dumper accident';
     scoreResult(newsFarDate, a).band === 'BACKGROUND');
   check('34d an undated NEWS page keeps its conservative band',
     scoreResult(newsNoDate, a).band === 'BACKGROUND', scoreResult(newsNoDate, a).band);
+}
+
+
+// -- 35. an unsearched social tier is never a silent absence ---------------
+//
+// With no key the social task is never dispatched, so nothing appeared in the
+// results — and nothing appeared in the engine report either. That is
+// indistinguishable from a social search that ran and found no posts, and a
+// claim file must not blur "no social evidence exists" with "social was never
+// searched". Uses only a social query, so with no key it makes no network call.
+{
+  const saved = process.env.SERPER_API_KEY;
+  delete process.env.SERPER_API_KEY;
+
+  const res = await handler(new Request('http://localhost/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      queries: [{ query: 'site:facebook.com Kotdwar accident', tier: 4, engines: ['social'] }],
+      limit: 10
+    })
+  }));
+  const data = await res.json();
+  const entry = (data.engines_unavailable || []).find((e) => /serper social/i.test(e.engine || ''));
+
+  check('35a the run still succeeds without a key', data.ok === true);
+  check('35b no social results are invented', (data.results || []).length === 0);
+  check('35c the social tier is reported as unavailable', !!entry, JSON.stringify(data.engines_unavailable));
+  check('35d the reason names the missing key',
+    !!entry && /SERPER_API_KEY/.test(entry.reason), entry && entry.reason);
+
+  if (saved === undefined) delete process.env.SERPER_API_KEY;
+  else process.env.SERPER_API_KEY = saved;
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

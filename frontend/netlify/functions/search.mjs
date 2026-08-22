@@ -704,6 +704,7 @@ export default async (req) => {
   const cseCx = process.env.GOOGLE_CSE_CX;
 
   const tasks = [];
+  let socialUnavailable = null;
   const add = (engine, query, run) => tasks.push({ engine, query, run });
 
   queries.forEach((q) => {
@@ -719,7 +720,16 @@ export default async (req) => {
     // With no key the task is simply never added — the rest of the sweep is
     // untouched and nothing fails.
     if (wantsSocial) {
-      if (serperKey) add('Serper social', q.query, () => serperSocial(q.query, serperKey));
+      if (serperKey) {
+        add('Serper social', q.query, () => serperSocial(q.query, serperKey));
+      } else {
+        // Say so rather than returning nothing. Without this the whole social
+        // tier simply does not appear, which is indistinguishable from a search
+        // that ran and found no posts — and an investigator reading a claim
+        // file cannot tell "no social evidence exists" from "social was never
+        // searched". Reported once per run, not once per query.
+        socialUnavailable = 'SERPER_API_KEY is not configured, so Facebook and Instagram were not searched';
+      }
       return;
     }
 
@@ -790,7 +800,9 @@ export default async (req) => {
     // that were blocked or errored, so an investigator is never shown a
     // confident "searched N engines" for a run where an engine never answered.
     engines_used: responded,
-    engines_unavailable: unavailable,
+    engines_unavailable: socialUnavailable
+      ? [...unavailable, { engine: 'Serper social', reason: socialUnavailable }]
+      : unavailable,
     engines_skipped: skipped,
     site_search_available: responded.includes('DuckDuckGo') || responded.includes('Bing Web')
       || responded.includes('Mojeek') || responded.includes('Google (live SERP)')

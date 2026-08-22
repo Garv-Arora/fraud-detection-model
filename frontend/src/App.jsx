@@ -23,6 +23,13 @@ import { extractAnchors, buildQueryPlan } from './lib/searchIntel';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+// Presentation for a discovered social post on the Claims Portfolio evidence
+// tab. The URL opened is always the one the provider returned.
+const SOCIAL_PLATFORMS = {
+  facebook: { label: 'Facebook', bg: '#E7F0FE', fg: '#1877F2' },
+  instagram: { label: 'Instagram', bg: '#FCE7F3', fg: '#C13584' }
+};
+
 /**
  * Everything about an ingest the reviewer must know before trusting the record:
  * pages that were skipped, pages that failed, and fields that could not be
@@ -307,6 +314,10 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
         url: r.url,
         snippet: r.snippet,
         source: r.source || 'Web',
+        source_type: r.source_type || null,
+        platform: r.platform || null,
+        page_name: r.page_name || null,
+        matched_fields: r.matched_fields || null,
         published_date: r.publish_date || null,
         score: Math.min(1, r.relevance_score / 100),
         why_relevant: (r.match_reasons || []).join('; ') || 'Keyword overlap with the claim parameters.'
@@ -624,6 +635,14 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
           url: r.url,
           snippet: r.snippet,
           source: r.source || 'Web',
+          // Carried through so the Evidence tab can identify a post as a post.
+          // Dropping them here left Facebook and Instagram results rendering as
+          // anonymous "Open Source" rows on this surface, while the Search Lab
+          // showed them as platform cards.
+          source_type: r.source_type || null,
+          platform: r.platform || null,
+          page_name: r.page_name || null,
+          matched_fields: r.matched_fields || null,
           published_date: r.publish_date || null,
           score: Math.min(1, r.relevance_score / 100),
           why_relevant: (r.match_reasons || []).join('; ')
@@ -673,6 +692,14 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
           url: r.url,
           snippet: r.snippet,
           source: r.source || 'Web',
+          // Carried through so the Evidence tab can identify a post as a post.
+          // Dropping them here left Facebook and Instagram results rendering as
+          // anonymous "Open Source" rows on this surface, while the Search Lab
+          // showed them as platform cards.
+          source_type: r.source_type || null,
+          platform: r.platform || null,
+          page_name: r.page_name || null,
+          matched_fields: r.matched_fields || null,
           published_date: r.publish_date || null,
           score: Math.min(1, r.relevance_score / 100),
           why_relevant: (r.match_reasons || []).join('; ')
@@ -1652,6 +1679,22 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                                     <span className={`source-tag tag-${ev.source.toLowerCase()}`} style={{ fontWeight: '700' }}>
                                       {ev.source}
                                     </span>
+                                    {SOCIAL_PLATFORMS[ev.platform] && (
+                                      <>
+                                        <span className="badge" style={{
+                                          background: SOCIAL_PLATFORMS[ev.platform].bg,
+                                          color: SOCIAL_PLATFORMS[ev.platform].fg,
+                                          fontSize: '10.5px', fontWeight: '800'
+                                        }}>
+                                          {SOCIAL_PLATFORMS[ev.platform].label}
+                                        </span>
+                                        {ev.page_name && (
+                                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                            {ev.page_name}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                       {ev.published_date ? `📅 Published: ${ev.published_date}` : ''}
                                     </span>
@@ -1665,8 +1708,17 @@ Narrative: The motorcycle UP-85-AT-9988 ridden by Ramesh Kumar was hit from behi
                                     }}>
                                       Relevance: {(ev.score * 100).toFixed(0)}%
                                     </span>
-                                    <a href={ev.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '5px 12px', fontSize: '11px' }}>
-                                      Open Source <ExternalLink size={12} />
+                                    <a
+                                      href={ev.url} target="_blank" rel="noopener noreferrer"
+                                      className="btn btn-secondary"
+                                      style={{
+                                        padding: '5px 12px', fontSize: '11px',
+                                        ...(SOCIAL_PLATFORMS[ev.platform]
+                                          ? { background: SOCIAL_PLATFORMS[ev.platform].fg, color: '#FFFFFF', border: 'none' }
+                                          : {})
+                                      }}
+                                    >
+                                      {SOCIAL_PLATFORMS[ev.platform] ? 'View Original Post' : 'Open Source'} <ExternalLink size={12} />
                                     </a>
                                   </div>
                                 </div>

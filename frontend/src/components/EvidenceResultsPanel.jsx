@@ -123,6 +123,18 @@ export default function EvidenceResultsPanel({ search, title, subtitle, compact 
     return out;
   }, [results]);
 
+  // Why the social tier is empty, when it is. A silent absence reads exactly
+  // like "no posts exist", which is the one thing it must not be confused with.
+  const socialNotice = useMemo(() => {
+    if (counts.Social > 0) return null;
+    const entry = (search?.engines_unavailable || [])
+      .find((e) => /serper social/i.test(e.engine || ''));
+    if (!entry) return null;
+    return /SERPER_API_KEY/i.test(entry.reason || '')
+      ? 'Facebook and Instagram were not searched — SERPER_API_KEY is not configured for this deployment.'
+      : `Facebook and Instagram could not be searched: ${entry.reason}`;
+  }, [counts.Social, search]);
+
   const bandCounts = useMemo(() => {
     const out = { CONFIRMED: 0, STRONG: 0, BACKGROUND: 0 };
     results.forEach((r) => { out[r.band || 'BACKGROUND'] += 1; });
@@ -289,6 +301,16 @@ export default function EvidenceResultsPanel({ search, title, subtitle, compact 
                 </button>
               ))}
             </div>
+
+            {socialNotice && (
+              <div style={{
+                width: '100%', background: '#FEF3C7', border: '1px solid #FDE68A',
+                borderRadius: '8px', padding: '9px 13px', fontSize: '12px',
+                color: '#92400E', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                <AlertTriangle size={14} /> {socialNotice}
+              </div>
+            )}
 
             {/* Band filter. With the net thrown as wide as it now is, an
                 investigator needs to isolate the records that actually name
