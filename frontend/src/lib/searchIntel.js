@@ -1456,60 +1456,92 @@ export function buildWideningPlan(anchors, options = {}) {
 /**
  * Publicly indexed Facebook and Instagram queries for a case.
  *
- * Deliberately separate from buildQueryPlan rather than folded into it: the
- * tiered plan is the existing, tested behaviour and nothing here should be able
- * to displace one of its queries. These are additive, dispatched on their own
- * shard, and the server drops them entirely when no SERP key is configured.
+ * These are the SAME queries the rest of the investigation runs, projected onto
+ * the two platforms — not a separate, narrower idea of what the case is about.
  *
- * Each query attacks one angle. Packing every known field into a single query
- * makes it so specific that Google matches nothing, which is the opposite of
- * what social discovery is for — the useful hit is usually a bystander's post
- * that names the place and the vehicle but no claim reference at all.
+ * Hand-rolling a short social-only list meant social searched three angles while
+ * the main sweep searched eight, and the ones it skipped were the productive
+ * ones. Measured on a real Kotdwar claim, the two best social hits were both in
+ * Hindi — "कोटद्वार-दुगड्डा रोड पर दर्दनाक हादसा। खाई में गिरा वाहन" is the
+ * claimed incident almost word for word — and the social builder had no
+ * vernacular angle at all, so it could only have found them by luck. Deriving
+ * from the tiered plan means anything the planner learns to search, social
+ * searches too.
+ *
+ * A `site:` prefix and an RSS feed are incompatible, so video-tier queries that
+ * already carry their own `site:` are skipped rather than nested.
  */
 export function buildSocialQueries(anchors, options = {}) {
-  const { maxPerPlatform = 3, platforms = ['facebook.com', 'instagram.com'] } = options;
+  const {
+    maxPerPlatform = 5,
+    platforms = ['facebook.com', 'instagram.com'],
+    plan = null
+  } = options;
   if (!anchors || !anchors.sufficient) return [];
 
-  const place = anchors.places[0] || '';
-  const name = anchors.names.find(isDistinctiveName) || anchors.names[0] || '';
-  const org = anchors.orgs[0] || '';
+  // Draw from the real plan, widened enough that the vernacular and date tiers
+  // are represented rather than crowded out by tier 1.
+  const source = (plan && plan.length ? plan : buildQueryPlan(anchors, {
+    maxQueries: Math.max(10, maxPerPlatform * 2),
+    includeVernacular: options.includeVernacular !== false,
+    includeVideo: false
+  })).filter((p) => !/site:/i.test(p.query));
+
+  // One query per angle, drawn ACROSS tiers rather than straight down them.
+  //
+  // Taking the best-scoring few in order spends the whole platform budget on
+  // tier 1 and 2 and never reaches the vernacular tier — which on a real
+  // Kotdwar claim was the only tier that found the incident, because the people
+  // posting about a district road accident post about it in Hindi. This is the
+  // same reasoning as TIER_DRAW_ORDER below, applied to a smaller budget.
+  const byTier = new Map();
+  const seenClass = new Set();
+  source.forEach((p) => {
+    const key = String(p.cls || 'other').replace(/-\d+$/, '');
+    if (seenClass.has(key)) return;
+    seenClass.add(key);
+    const tier = p.tier || 2;
+    if (!byTier.has(tier)) byTier.set(tier, []);
+    byTier.get(tier).push(p);
+  });
+
   const plate = anchors.plates[0] || '';
-  const vtype = anchors.vehicleTypes[0] || '';
-  const incident = anchors.incidentTerms.find((t) => !NON_EVENT_TERMS.has(t)) || 'accident';
-  const longDate = anchors.date ? formatLongDate(anchors.date) : '';
+  const picks = plate ? [{ query: phrase(plate), cls: 'plate', tier: 1, intent: 'Registration plate' }] : [];
 
-  // Ordered by how strongly each angle identifies THIS incident.
-  const angles = [
-    { cls: 'social-name', parts: name && place ? [phrase(name), place, 'accident'] : null },
-    { cls: 'social-plate', parts: plate ? [phrase(plate)] : null },
-    { cls: 'social-vehicle', parts: place && vtype ? [place, vtype, incident] : null },
-    { cls: 'social-place', parts: place ? [place, incident] : null },
-    { cls: 'social-date', parts: place && longDate ? [place, phrase(longDate), 'accident'] : null },
-    { cls: 'social-org', parts: org && place ? [phrase(org), place] : null }
-  ].filter((a) => a.parts);
+  const tiers = [...byTier.keys()].sort((x, y) => x - y);
+  let round = 0;
+  while (picks.length < maxPerPlatform && round < 6) {
+    let tookAny = false;
+    for (const tier of tiers) {
+      if (picks.length >= maxPerPlatform) break;
+      const queue = byTier.get(tier);
+      if (queue && queue.length) {
+        picks.push(queue.shift());
+        tookAny = true;
+      }
+    }
+    if (!tookAny) break;
+    round += 1;
+  }
 
-  const plan = [];
+  const out = [];
   const seen = new Set();
-
   platforms.forEach((site) => {
-    let taken = 0;
-    angles.forEach((angle) => {
-      if (taken >= maxPerPlatform) return;
-      const query = scrubQuery(`site:${site} ${angle.parts.filter(Boolean).join(' ')}`);
+    picks.forEach((p) => {
+      const query = scrubQuery(`site:${site} ${p.query}`);
       if (!query || seen.has(query.toLowerCase())) return;
       seen.add(query.toLowerCase());
-      taken += 1;
-      plan.push({
+      out.push({
         query,
         tier: 4,
-        intent: `Publicly indexed ${site.replace('.com', '')} post — ${angle.cls.replace('social-', '')}`,
-        cls: `${angle.cls}-${site.split('.')[0]}`,
+        intent: `${site.replace('.com', '')} — ${p.intent || p.cls}`,
+        cls: `social-${p.cls || 'other'}-${site.split('.')[0]}`,
         engines: ['social']
       });
     });
   });
 
-  return plan;
+  return out;
 }
 
 // Draw order across precision tiers. A plain sort-then-truncate lets a rich
@@ -1820,13 +1852,26 @@ export function scoreResult(result, anchors) {
   if (orgHit) score += 22;
 
   // -- 4. Location ----------------------------------------------------------
-  let placeHits = 0;
-  anchors.places.forEach((p) => {
-    if (p.length >= 4 && matchesAnchor(p, hay)) {
-      placeHits += 1;
-      matched.push(p);
-    }
+  // Count DISTINCT places, not distinct anchor strings.
+  //
+  // A compound location is decomposed into its parts so that a report naming
+  // only half of it is still reachable — "Khajuri Runda" also yields "Khajuri"
+  // and "Runda". But that means one place matching scores three times, which
+  // inflated an Instagram reel that merely carried "Khajuri runda" in a related
+  // -video caption to the same place count as a source naming two genuinely
+  // different towns. Components of one name are one reference.
+  const matchedPlaces = anchors.places.filter((p) => p.length >= 4 && matchesAnchor(p, hay));
+  matchedPlaces.forEach((p) => matched.push(p));
+
+  const distinctPlaces = matchedPlaces.filter((p) => {
+    const lp = p.toLowerCase();
+    // Drop a match that is merely part of a longer match already counted.
+    return !matchedPlaces.some((other) => {
+      const lo = other.toLowerCase();
+      return lo !== lp && lo.length > lp.length && lo.includes(lp);
+    });
   });
+  const placeHits = distinctPlaces.length;
   if (placeHits) {
     score += Math.min(placeHits * 12, 24);
     reasons.push(`Accident location matched (${placeHits} place reference${placeHits > 1 ? 's' : ''})`);
@@ -1842,7 +1887,19 @@ export function scoreResult(result, anchors) {
   });
 
   // -- 6. Incident vocabulary (necessary, not sufficient) -------------------
-  const incidentHit = /accident|crash|collision|overturn|mishap|killed|injured|हादसा|दुर्घटना|टक्कर|घायल|मौत|अपघात|जखमी|અકસ્માત|ઘાયલ|দুর্ঘটনা|আহত|விபத்து|காயம்|ప్రమాదం|గాయాల|ಅಪಘಾತ|ಗಾಯ|അപകടം|പരിക്ക്|ਹਾਦਸਾ|ਜ਼ਖ਼ਮੀ|ଦୁର୍ଘଟଣା|حادثہ|زخمی/i.test(haystack);
+  // Generic road-incident vocabulary, in every supported script.
+  const genericIncident = /accident|crash|collision|overturn|mishap|killed|injured|हादसा|दुर्घटना|टक्कर|घायल|मौत|अपघात|जखमी|અકસ્માત|ઘાયલ|দুর্ঘটনা|আহত|விபத்து|காயம்|ప్రమాదం|గాయాల|ಅಪಘಾತ|ಗಾಯ|അപകടം|പരിക്ക്|ਹਾਦਸਾ|ਜ਼ਖ਼ਮੀ|ଦୁର୍ଘଟଣା|حادثہ|زخمی/i.test(haystack);
+
+  // …plus whatever this case actually calls its incident. A claim whose
+  // narrative is "vehicle fell into gorge" anchors on "gorge" and "fell",
+  // neither of which is in the generic list — so a report headlined "Dumper
+  // falls into gorge at Kotdwar" was taking the -20 "no road-incident
+  // vocabulary" penalty for describing precisely the reported event.
+  const caseIncident = anchors.incidentTerms.some(
+    (t) => !NON_EVENT_TERMS.has(t) && t.length >= 4 && matchesAnchor(t, hay)
+  );
+
+  const incidentHit = genericIncident || caseIncident;
   if (incidentHit) {
     score += 10;
   } else {
@@ -1926,7 +1983,21 @@ export function scoreResult(result, anchors) {
   const corridorHit = anchors.corridors.some((c) => lower.includes(c.toLowerCase()));
 
   const strongWithDate = dateHit || corridorHit;
-  const strongWithoutDate = !anchors.date && (placeHits >= 2 || vehicleHit);
+
+  // Date alignment can be unknowable from either side. The claim may carry no
+  // loss date, and a source may carry no publication date — a social post
+  // almost never does, because the platforms do not expose one to the index.
+  // Either way there is nothing to align, and demanding alignment anyway would
+  // cap every social result at BACKGROUND on any dated claim however precisely
+  // it matched. The band reports how well a source fits the AVAILABLE evidence,
+  // so when a date cannot be compared the bar becomes corroborating detail
+  // instead: a second place reference, or the vehicle as well.
+  // Scoped to social results deliberately. A news page that carries no date is
+  // unusual and the existing conservative treatment of it is left exactly as it
+  // was; a social post carrying no date is the norm, not a signal.
+  const undatedSocial = socialEvidence && !parseFlexibleDate(result.publish_date);
+  const dateComparable = !!anchors.date && !undatedSocial;
+  const strongWithoutDate = !dateComparable && (placeHits >= 2 || vehicleHit);
 
   // On a social platform a name is weak identification: comment threads and
   // reaction lists put real people's names beside content that has nothing to
@@ -1935,6 +2006,32 @@ export function scoreResult(result, anchors) {
   // post reaches CONFIRMED only on a plate, and a name or operator match
   // carries it no further than STRONG.
   const socialSoftIdentity = socialEvidence && !plateHit && (nameHit || orgHit);
+
+  // A social result has to correspond to the case that was searched.
+  //
+  // A `site:` query returns whatever the platform has near those words, and a
+  // town name is on every jeweller, school and job advert in the town. Measured
+  // on a real Kotdwar claim, 52 social results came back and 37 of them were
+  // shop fronts, hiring posts and tourism reels whose only connection was the
+  // word "Kotdwar". They scored near zero and were correctly banded BACKGROUND,
+  // but they still filled the investigator's list.
+  //
+  // The bar is deliberately the same question the investigator would ask: does
+  // this name someone from the claim, or does it describe something happening
+  // at the right place? A news domain earns latitude here because it is a
+  // publisher; a social platform is not.
+  const correspondsToCase = plateHit || nameHit || orgHit
+    || (placeHits > 0 && (incidentHit || vehicleHit));
+
+  if (socialEvidence && !correspondsToCase) {
+    return {
+      score: 0,
+      reasons: ['Rejected: a social post matching the location but nothing about the incident'],
+      matched: [],
+      rejected: true,
+      band: null
+    };
+  }
 
   let band;
   if (caseSpecific && !socialSoftIdentity) band = BANDS.CONFIRMED;

@@ -789,6 +789,135 @@ const SHORT = 'Jaipur Sikar highway dumper accident';
     both.every((r) => r.matched_fields && typeof r.matched_fields.location === 'boolean'));
 }
 
+
+// -- 31. social searches what the investigation searches --------------------
+//
+// The social builder used to carry its own short list of angles. It searched
+// three while the tiered plan searched eight, and the ones it skipped were the
+// productive ones: on a real Kotdwar claim the two best social hits were both
+// Hindi posts, and the builder had no vernacular angle at all. It now derives
+// from the plan, so anything the planner learns to search, social searches too.
+{
+  const a = extractAnchors('', {
+    driver_name: 'Dhirendra Rawat', accident_date_time: '2025-11-23',
+    loss_location: 'Kotdwar, Pauri Garhwal', vehicle_types: 'Dumper',
+    FIR_cause_narrative: 'Vehicle fell into gorge'
+  });
+  const social = buildSocialQueries(a, {});
+  const bare = social.map((q) => q.query.replace(/^site:\S+\s+/, ''));
+  const plan = buildQueryPlan(a, { maxQueries: 10 }).map((p) => p.query);
+
+  check('31a social queries are drawn from the tiered plan',
+    bare.every((q) => plan.includes(q)), bare.filter((q) => !plan.includes(q)).join(' | '));
+  check('31b the vernacular tier reaches social',
+    social.some((q) => /[ऀ-ॿ]/.test(q.query)), bare.join(' | '));
+  check('31c the location angle reaches social', bare.some((q) => /Kotdwar/.test(q)));
+  check('31d the named party reaches social', bare.some((q) => /"Dhirendra Rawat"/.test(q)));
+  check('31e both platforms get the same angle set',
+    social.filter((q) => /facebook/.test(q.query)).length === social.filter((q) => /instagram/.test(q.query)).length);
+  check('31f a video-tier site: query is never nested inside another site:',
+    social.every((q) => (q.query.match(/site:/g) || []).length === 1), social.map((q) => q.query).join(' | '));
+
+  // A plate is the strongest social angle there is, so it leads when present.
+  const plated = extractAnchors('', { vehicle_numbers: 'UK15CA1234', loss_location: 'Kotdwar', FIR_cause_narrative: 'accident' });
+  check('31g a registration number leads the social sweep',
+    buildSocialQueries(plated, {}).some((q) => /UK15CA1234/.test(q.query)));
+
+  // The tiered plan itself must still be untouched by any of this.
+  check('31h the tiered plan carries no social query',
+    !buildQueryPlan(a, { maxQueries: 8 }).some((p) => /facebook|instagram/i.test(p.query)));
+}
+
+// -- 32. social results must correspond to the case ------------------------
+//
+// A `site:` query returns whatever the platform holds near those words, and a
+// town name sits on every jeweller, school and hiring post in the town. On a
+// real Kotdwar claim 52 social results came back and 37 were shop fronts, job
+// adverts and tourism reels whose only connection was the word "Kotdwar".
+{
+  const a = extractAnchors('', {
+    loss_location: 'Kotdwar', vehicle_types: 'Dumper', FIR_cause_narrative: 'fell into gorge'
+  });
+  const soc = (title, snippet) => ({
+    title, snippet, url: `https://www.facebook.com/n/posts/${title.length}`,
+    domain: 'facebook.com', platform: 'facebook', source_type: 'social_media', engine: 'Serper social'
+  });
+
+  check('32a a post about the incident at the place is kept',
+    scoreResult(soc('Dumper falls into gorge at Kotdwar', 'A dumper fell into a gorge near Kotdwar.'), a).rejected === false);
+  check('32b a shop front in the same town is rejected',
+    scoreResult(soc('KING Jewellers #Kotdwar Jhanda Chowk', 'oldest jewellers in Kotdwar'), a).rejected === true);
+  check('32c a hiring post in the same town is rejected',
+    scoreResult(soc('Urgent hiring Assistant Manager HR', 'location Kotdwar 4-5 year experience'), a).rejected === true);
+  check('32d a tourism reel in the same town is rejected',
+    scoreResult(soc('Kotdwar dugada deer', '#beargrills #uttrakhand #kotdwar'), a).rejected === true);
+  check('32e the same incident in a different town is rejected',
+    scoreResult(soc('Bus falls into gorge in Nashik', 'A bus fell into a gorge in Nashik.'), a).rejected === true);
+
+  // The rule is social-only: a news page is a publisher and keeps its latitude.
+  const news = {
+    title: 'Kotdwar civic news roundup', snippet: 'Municipal notices from Kotdwar.',
+    url: 'https://timesofindia.indiatimes.com/kotdwar.html', domain: 'timesofindia.indiatimes.com'
+  };
+  check('32f news is not subject to the social correspondence rule',
+    scoreResult(news, a).rejected === false);
+}
+
+// -- 33. the case's own incident vocabulary counts --------------------------
+//
+// The generic road-incident list does not contain "gorge" or "fell", so a
+// report headlined "Dumper falls into gorge at Kotdwar" was taking the -20
+// "no road-incident vocabulary" penalty for describing precisely the reported
+// event. A term the claim itself anchors on is incident vocabulary for that
+// claim.
+{
+  const a = extractAnchors('', {
+    loss_location: 'Kotdwar', vehicle_types: 'Dumper', FIR_cause_narrative: 'vehicle fell into gorge'
+  });
+  const r = {
+    title: 'Dumper falls into gorge at Kotdwar', snippet: 'A dumper fell into a gorge near Kotdwar.',
+    url: 'https://timesofindia.indiatimes.com/a.html', domain: 'timesofindia.indiatimes.com'
+  };
+  const v = scoreResult(r, a);
+  check('33a the case incident term is recognised',
+    !v.reasons.some((x) => /No road-incident vocabulary/i.test(x)), JSON.stringify(v.reasons));
+  check('33b it is credited as an incident match', v.matchedFields.incident === true);
+  check('33c and no longer takes the penalty', v.score > 25, String(v.score));
+
+  // A page with neither generic nor case-specific incident words still does.
+  const off = { title: 'Kotdwar municipal budget approved', snippet: 'The council approved the budget.', url: 'https://x.in/a', domain: 'x.in' };
+  check('33d an unrelated page still takes the penalty',
+    scoreResult(off, a).reasons.some((x) => /No road-incident vocabulary/i.test(x)));
+}
+
+// -- 34. an uncomparable date does not cap a social post -------------------
+//
+// The platforms do not expose a publication date to the index, so a social
+// result almost never carries one. Requiring date alignment anyway capped every
+// social result at BACKGROUND on any dated claim, however precisely it matched.
+// Scoped to social: a news page without a date keeps its existing conservative
+// treatment.
+{
+  const a = extractAnchors('', {
+    loss_location: 'Kotdwar', vehicle_types: 'Dumper',
+    accident_date_time: '2025-11-23', FIR_cause_narrative: 'fell into gorge'
+  });
+  const body = { title: 'Dumper falls into gorge near Kotdwar', snippet: 'A dumper fell into a gorge near Kotdwar.' };
+  const socialNoDate = { ...body, url: 'https://www.facebook.com/n/posts/a', domain: 'facebook.com', platform: 'facebook', source_type: 'social_media', engine: 'Serper social', publish_date: null };
+  const newsNoDate = { ...body, url: 'https://timesofindia.indiatimes.com/a.html', domain: 'timesofindia.indiatimes.com', publish_date: null };
+  const newsOnDate = { ...newsNoDate, publish_date: 'Mon, 24 Nov 2025 04:00:00 GMT' };
+  const newsFarDate = { ...newsNoDate, publish_date: 'Mon, 24 Mar 2024 04:00:00 GMT' };
+
+  check('34a an undated social post can reach STRONG',
+    scoreResult(socialNoDate, a).band === 'STRONG', scoreResult(socialNoDate, a).band);
+  check('34b existing news banding on-date is unchanged',
+    scoreResult(newsOnDate, a).band === 'STRONG');
+  check('34c existing news banding far-from-date is unchanged',
+    scoreResult(newsFarDate, a).band === 'BACKGROUND');
+  check('34d an undated NEWS page keeps its conservative band',
+    scoreResult(newsNoDate, a).band === 'BACKGROUND', scoreResult(newsNoDate, a).band);
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 if (failures.length) {
   failures.forEach((f) => console.log(`  FAIL  ${f}`));
