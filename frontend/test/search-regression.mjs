@@ -18,7 +18,7 @@
 import {
   extractAnchors, buildQueryPlan, buildWideningPlan, scoreResult, rankAndDedupe,
   scrubQuery, extractCasualtyCount, extractInjuredCount, normaliseDigits,
-  parseFlexibleDate, toISO, BANDS
+  parseFlexibleDate, toISO, BANDS, buildSocialQueries, isVerifiedSocialResult
 } from '../src/lib/searchIntel.js';
 import { buildShards, harvestEntities } from '../src/lib/searchService.js';
 import { phoneticEquals, phoneticKey, indicToLatin } from '../src/lib/transliterate.js';
@@ -590,6 +590,203 @@ const SHORT = 'Jaipur Sikar highway dumper accident';
   // Excel serials, which is what the sheet actually stores, were already right.
   check('25e excel serial unchanged', toISO(parseFlexibleDate('45963')) === '2025-11-02',
     toISO(parseFlexibleDate('45963')));
+}
+
+
+// -- 26. social query generation --------------------------------------------
+//
+// Facebook and Instagram discovery is additive. The tiered plan is the existing,
+// tested behaviour, so these queries live in their own builder and must never
+// be able to displace one of its entries.
+{
+  const a = extractAnchors('', {
+    driver_name: 'Dhirendra Rawat', accident_date_time: '2025-11-23',
+    loss_location: 'Kotdwar, Pauri Garhwal', vehicle_types: 'Dumper',
+    FIR_cause_narrative: 'Vehicle fell into gorge'
+  });
+  const social = buildSocialQueries(a, { maxPerPlatform: 3 });
+  const main = buildQueryPlan(a, { maxQueries: 8 });
+
+  check('26a social queries are produced', social.length > 0, String(social.length));
+  check('26b both platforms are covered',
+    social.some((q) => /site:facebook\.com/.test(q.query)) && social.some((q) => /site:instagram\.com/.test(q.query)));
+  check('26c every social query is routed to the social engine',
+    social.every((q) => q.engines.length === 1 && q.engines[0] === 'social'));
+  check('26d per-platform cap respected',
+    social.filter((q) => /facebook/.test(q.query)).length <= 3);
+  check('26e the named party is quoted so engines treat it as a phrase',
+    social.some((q) => q.query.includes('"Dhirendra Rawat"')));
+  check('26f queries are focused, not one query with every field',
+    social.every((q) => q.query.split(/\s+/).length <= 8),
+    social.map((q) => q.query).join(' | '));
+
+  // The existing plan must be untouched by any of this.
+  check('26g no social query leaks into the tiered plan',
+    !main.some((p) => /facebook|instagram/i.test(p.query)));
+  check('26h the tiered plan is unchanged in shape', main.length > 0 && main.some((p) => p.tier === 1));
+
+  // Nothing searchable means nothing dispatched, on the social side too.
+  check('26i insufficient anchors produce no social queries',
+    buildSocialQueries(extractAnchors('12/08/2026', {}), {}).length === 0);
+  check('26j social queries carry no internal identifiers',
+    buildSocialQueries(extractAnchors('', {
+      claim_id: 'CL26140317', insured_contact_no: '9876543210',
+      loss_location: 'Kotdwar', FIR_cause_narrative: 'accident'
+    }), {}).every((q) => !/CL26140317|9876543210/.test(q.query)));
+}
+
+// -- 27. platform classification --------------------------------------------
+//
+// A platform label asserts that a post exists at that address, so it is decided
+// from the host of the URL the provider returned and from nothing else. It is
+// never inferred from the query that was asked, and no social URL is ever built.
+{
+  const { platformOf, isSocialIndexPage, isBrowsableUrl, toSerperResult } = fn;
+
+  check('27a facebook post classified', platformOf('https://www.facebook.com/WIONews/posts/abc') === 'facebook');
+  check('27b instagram post classified', platformOf('https://www.instagram.com/p/ABC123/') === 'instagram');
+  check('27c mobile host classified', platformOf('https://m.facebook.com/story.php?id=1') === 'facebook');
+  check('27d fb.watch classified', platformOf('https://fb.watch/xyz/') === 'facebook');
+  check('27e a news site is not a platform', platformOf('https://timesofindia.indiatimes.com/x') === null);
+  check('27f a lookalike host is not the platform',
+    platformOf('https://facebook.com.attacker.example/p/1') === null);
+  check('27g userinfo spoof is not the platform',
+    platformOf('https://facebook.com@evil.example/p/1') === null);
+  check('27h garbage yields no platform', platformOf('not a url') === null);
+
+  // Profile and hashtag indexes carry no incident content.
+  check('27i platform homepage rejected', isSocialIndexPage('https://www.facebook.com/') === true);
+  check('27j hashtag index rejected', isSocialIndexPage('https://www.instagram.com/explore/tags/x/') === true);
+  check('27k "popular" index rejected', isSocialIndexPage('https://www.instagram.com/popular/kotdwar-news/') === true);
+  check('27l a real reel is kept', isSocialIndexPage('https://www.instagram.com/reel/DaphU7agGO6/') === false);
+  check('27m a real post is kept', isSocialIndexPage('https://www.facebook.com/TimesofIndia/posts/abc') === false);
+  check('27n /watch with a video id is kept', isSocialIndexPage('https://www.facebook.com/watch/?v=12345') === false);
+
+  // Every result URL is rendered as a clickable href, so only browsable schemes
+  // may survive the mapper.
+  check('27o https is browsable', isBrowsableUrl('https://www.facebook.com/a/posts/b') === true);
+  ['javascript:alert(1)', 'data:text/html,x', 'file:///etc/passwd', '//evil.example/x', '', null]
+    .forEach((u) => check(`27p dangerous scheme rejected: ${String(u).slice(0, 18)}`, isBrowsableUrl(u) === false));
+  check('27q a hostile link is dropped entirely by the mapper',
+    toSerperResult({ title: 'x', link: 'javascript:alert(1)' }, 'q', 'Serper social').url === '');
+
+  // Malformed provider payloads must not throw.
+  [null, undefined, {}, { link: null }, { title: {}, link: 'https://www.instagram.com/p/A/' }]
+    .forEach((raw, i) => {
+      let threw = false;
+      try { toSerperResult(raw || {}, 'q', 'Serper social'); } catch { threw = true; }
+      check(`27r malformed payload ${i} does not throw`, !threw);
+    });
+}
+
+// -- 28. social results are admitted only on a keyed provider's word ---------
+//
+// The default remains rejection. An anonymous engine returns login walls for
+// these hosts, and a login wall in a fraud file is worse than nothing — so a
+// social URL is evidence only when a keyed SERP index vouched for it.
+{
+  const a = extractAnchors('Kotdwar dumper gorge accident', {});
+  const post = (over = {}) => ({
+    title: 'Dumper falls into gorge near Kotdwar, driver dead',
+    snippet: 'A dumper fell into a gorge near Kotdwar on Sunday.',
+    url: 'https://www.facebook.com/IndiaToday/posts/dumper-gorge-kotdwar',
+    domain: 'facebook.com', platform: 'facebook', source_type: 'social_media',
+    engine: 'Serper social', ...over
+  });
+
+  check('28a a keyed provider result is admitted', scoreResult(post(), a).rejected === false);
+  check('28b the same URL from a scraped engine is still rejected',
+    scoreResult(post({ engine: 'Bing Web' }), a).rejected === true);
+  check('28c a social URL without the social flags is still rejected',
+    scoreResult(post({ source_type: 'web', platform: null }), a).rejected === true);
+  // A record asserting a platform while pointing elsewhere is not evidence of a
+  // post. It is not rejected outright — as a web page it may still be relevant —
+  // but it must never be treated, ranked or badged as social evidence.
+  check('28d a platform claim on a non-platform host is not social evidence',
+    isVerifiedSocialResult(post({ url: 'https://evil.example/p/1' })) === false);
+  check('28e isVerifiedSocialResult agrees with the gate',
+    isVerifiedSocialResult(post()) === true && isVerifiedSocialResult(post({ engine: 'Mojeek' })) === false);
+}
+
+// -- 29. a name on a social post is weak identification ---------------------
+//
+// Google builds a social snippet from the post text AND its comment thread, so
+// a claimant's name in a snippet is often just someone who commented. Measured
+// live: a walk-in-interview job advert came back as a CONFIRMED person match on
+// a road-accident claim, purely because the claimant had reacted to it.
+{
+  const a = extractAnchors('', {
+    driver_name: 'Dhirendra Rawat', loss_location: 'Kotdwar, Pauri Garhwal',
+    accident_date_time: '2025-11-23', FIR_cause_narrative: 'Vehicle fell into gorge'
+  });
+
+  const jobAd = {
+    title: 'The walk-in interview advertisement',
+    snippet: '... accidents, and rotational night/Sunday/holiday ... Dhirendra Rawat and 14 others. 15 reactions ·. 34 ... 4-5 Year location Kotdwar. 24. QA Assistant ...',
+    url: 'https://www.facebook.com/Jkdap/posts/the-walk-in-interview-advertisement',
+    domain: 'facebook.com', platform: 'facebook', source_type: 'social_media', engine: 'Serper social'
+  };
+  const v = scoreResult(jobAd, a);
+  check('29a an unrelated social post is never CONFIRMED', v.band !== 'CONFIRMED', v.band);
+  check('29b the commenter name does not count as the claimant',
+    v.matchedFields.person === false, JSON.stringify(v.matchedFields));
+  check('29c it does not present as strong evidence', v.score < 50, String(v.score));
+
+  // A registration number is unambiguous wherever it appears, so it still
+  // carries a social post to CONFIRMED.
+  const withPlate = extractAnchors('', { vehicle_numbers: 'UK15CA1234', loss_location: 'Kotdwar' });
+  const platePost = {
+    title: 'Dumper UK15CA1234 falls into gorge at Kotdwar',
+    snippet: 'The vehicle UK15CA1234 went off the road near Kotdwar.',
+    url: 'https://www.facebook.com/news/posts/uk15ca1234-gorge',
+    domain: 'facebook.com', platform: 'facebook', source_type: 'social_media', engine: 'Serper social'
+  };
+  check('29d a plate on a social post still reaches CONFIRMED',
+    scoreResult(platePost, withPlate).band === 'CONFIRMED', scoreResult(platePost, withPlate).band);
+
+  // The same name in the post's own title is legitimate identification, but
+  // still capped below CONFIRMED because the platform cannot distinguish a
+  // subject from an author.
+  const titled = { ...jobAd, title: 'Dhirendra Rawat killed as dumper falls into gorge at Kotdwar', snippet: 'Kotdwar accident.' };
+  const tv = scoreResult(titled, a);
+  check('29e a name in the post title is matched', tv.matchedFields.person === true);
+  check('29f but a social name still never reaches CONFIRMED', tv.band !== 'CONFIRMED', tv.band);
+  check('29g the cap is explained to the investigator',
+    tv.reasons.some((r) => /commenter rather than a party/i.test(r)));
+}
+
+// -- 30. social results reuse the existing dedup and ranking ----------------
+{
+  const a = extractAnchors('Kotdwar dumper gorge accident', {});
+  const mk = (url, title) => ({
+    title, snippet: 'A dumper fell into a gorge near Kotdwar.', url,
+    domain: 'facebook.com', platform: 'facebook', source_type: 'social_media', engine: 'Serper social'
+  });
+
+  // The same post reached by three different social queries.
+  const dupes = [
+    mk('https://www.facebook.com/IndiaToday/posts/gorge-kotdwar', 'Dumper falls into gorge at Kotdwar'),
+    mk('https://www.facebook.com/IndiaToday/posts/gorge-kotdwar?utm_source=fb', 'Dumper falls into gorge at Kotdwar'),
+    mk('https://www.facebook.com/IndiaToday/posts/gorge-kotdwar/', 'Dumper falls into gorge at Kotdwar')
+  ];
+  const out = rankAndDedupe(dupes, a, { minScore: 0, limit: 20 });
+  check('30a the same social post appears once', out.length === 1, `kept ${out.length}`);
+
+  // Existing news behaviour must be untouched when social sits alongside it.
+  const mixed = [
+    ...dupes,
+    { title: 'Dumper falls into gorge in Pauri, driver killed', snippet: 'Kotdwar dumper gorge accident.', url: 'https://timesofindia.indiatimes.com/city/dehradun/a.html', domain: 'timesofindia.indiatimes.com', publish_date: 'Mon, 24 Nov 2025 04:00:00 GMT' },
+    { title: 'Dumper falls into gorge in Pauri, driver killed', snippet: 'Kotdwar dumper gorge accident.', url: 'https://hindustantimes.com/b.html', domain: 'hindustantimes.com', publish_date: 'Mon, 24 Nov 2025 06:00:00 GMT' }
+  ];
+  const both = rankAndDedupe(mixed, a, { minScore: 0, limit: 20 });
+  check('30b news syndication still collapses alongside social',
+    both.filter((r) => !isVerifiedSocialResult(r)).length === 1);
+  check('30c social and news coexist in one ranked list',
+    both.some(isVerifiedSocialResult) && both.some((r) => !isVerifiedSocialResult(r)));
+  check('30d every ranked url is unique',
+    both.map((r) => r.url).length === new Set(both.map((r) => r.url)).size);
+  check('30e matched fields are reported for the card',
+    both.every((r) => r.matched_fields && typeof r.matched_fields.location === 'boolean'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

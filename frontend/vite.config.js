@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -57,11 +57,22 @@ function pdfjsAssets() {
  * manual-links-only mode and the live search path never gets exercised.
  * This runs the exact same module the deployed function runs.
  */
-function netlifyFunctionsDev() {
+function netlifyFunctionsDev(env) {
   return {
     name: 'netlify-functions-dev',
     apply: 'serve',
     configureServer(server) {
+      // The function reads its provider keys from process.env, which is how
+      // Netlify supplies them in production. Vite only exposes .env values to
+      // the client bundle (VITE_-prefixed), so without this the local dev
+      // server runs the function with no keys and the optional providers stay
+      // dark — which looks identical to them being unconfigured.
+      //
+      // Server-side only: these never reach the client bundle.
+      ['SERPER_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX'].forEach((name) => {
+        if (!process.env[name] && env[name]) process.env[name] = env[name]
+      })
+
       server.middlewares.use('/api/search', async (req, res) => {
         try {
           const mod = await server.ssrLoadModule('/netlify/functions/search.mjs')
@@ -91,8 +102,13 @@ function netlifyFunctionsDev() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), netlifyFunctionsDev(), pdfjsAssets()],
+export default defineConfig(({ mode }) => {
+  // Third argument '' loads every key, not just the VITE_-prefixed ones. The
+  // repository root is one level up from `frontend`, which is where .env lives.
+  const env = { ...loadEnv(mode, path.resolve(process.cwd(), '..'), ''), ...loadEnv(mode, process.cwd(), '') }
+
+  return {
+  plugins: [react(), netlifyFunctionsDev(env), pdfjsAssets()],
   build: {
     rollupOptions: {
       output: {
@@ -116,5 +132,6 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  }
   }
 })

@@ -16,14 +16,48 @@ const GROUP_ICONS = {
   globe: Globe
 };
 
-const CATEGORIES = ['ALL', 'News', 'YouTube', 'Web'];
+const CATEGORIES = ['ALL', 'News', 'Social', 'YouTube', 'Web'];
+
+// Platform presentation. `label` is what the investigator reads; the URL shown
+// and opened is always the one the search provider returned, never rebuilt.
+const PLATFORMS = {
+  facebook: { label: 'Facebook', bg: '#E7F0FE', fg: '#1877F2', hosts: ['facebook.com', 'fb.com', 'fb.watch'] },
+  instagram: { label: 'Instagram', bg: '#FCE7F3', fg: '#C13584', hosts: ['instagram.com'] }
+};
+
+// A social record is one a keyed SERP provider vouched for AND whose URL is
+// still on that platform's own host.
+//
+// The host is re-checked here rather than trusted from the flag. This card
+// renders a "View Original Post" button, so the flag decides where an
+// investigator is sent; a record asserting `platform: facebook` while pointing
+// somewhere else must not be badged as a Facebook post. The mapper cannot
+// currently produce such a record — it derives the platform from the host — but
+// the check is cheap and the failure it prevents is not.
+function isSocialRecord(record) {
+  if (record.source_type !== 'social_media') return false;
+  const pf = PLATFORMS[record.platform];
+  if (!pf) return false;
+  try {
+    const host = new URL(record.url).hostname.replace(/^www\./, '').toLowerCase();
+    return (pf.hosts || []).some((h) => host === h || host.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
 
 function categoryOf(record) {
   const url = (record.url || '').toLowerCase();
+  if (isSocialRecord(record)) return 'Social';
   if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
   if (record.source === 'News' || record.authoritative) return 'News';
   return 'Web';
 }
+
+const FIELD_LABELS = {
+  person: 'Person', vehicle: 'Vehicle', location: 'Location',
+  date: 'Date', incident: 'Incident', operator: 'Operator'
+};
 
 function relevanceColour(score) {
   if (score >= 75) return { bg: '#DCFCE7', fg: '#15803D', border: '#BBF7D0' };
@@ -84,7 +118,7 @@ export default function EvidenceResultsPanel({ search, title, subtitle, compact 
   }), [results, category, minScore, band]);
 
   const counts = useMemo(() => {
-    const out = { ALL: results.length, News: 0, Web: 0, YouTube: 0 };
+    const out = { ALL: results.length, News: 0, Social: 0, Web: 0, YouTube: 0 };
     results.forEach((r) => { out[categoryOf(r)] += 1; });
     return out;
   }, [results]);
@@ -343,6 +377,21 @@ export default function EvidenceResultsPanel({ search, title, subtitle, compact 
                             </span>
                           );
                         })()}
+                        {isSocialRecord(item) && (() => {
+                          const pf = PLATFORMS[item.platform];
+                          return (
+                            <>
+                              <span className="badge" style={{ background: pf.bg, color: pf.fg, fontSize: '10.5px', fontWeight: '800' }}>
+                                {pf.label}
+                              </span>
+                              {item.page_name && (
+                                <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>
+                                  {item.page_name}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                         {item.distinct_incident && (
                           <span className="badge" title="Another result shares this headline but reports a different date or casualty count. They are not the same event." style={{ background: '#FEF3C7', color: '#92400E', fontSize: '10.5px', fontWeight: '800' }}>
                             SEPARATE INCIDENT
@@ -389,6 +438,42 @@ export default function EvidenceResultsPanel({ search, title, subtitle, compact 
                       <p style={{ fontSize: '13px', color: '#334155', lineHeight: '1.55', margin: 0 }}>
                         {item.snippet}
                       </p>
+                    )}
+
+                    {isSocialRecord(item) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <a
+                          href={item.url} target="_blank" rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                            background: PLATFORMS[item.platform].fg, color: '#FFFFFF',
+                            padding: '7px 14px', borderRadius: '7px', fontSize: '12px',
+                            fontWeight: '700', textDecoration: 'none'
+                          }}
+                        >
+                          <ExternalLink size={13} /> View Original Post
+                        </a>
+                        {!!item.matched_fields && (
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {Object.entries(FIELD_LABELS).map(([key, label]) => {
+                              const hit = !!item.matched_fields[key];
+                              return (
+                                <span
+                                  key={key}
+                                  title={hit ? `${label} corroborated by this source` : `${label} not corroborated`}
+                                  style={{
+                                    fontSize: '10.5px', fontWeight: '700', padding: '3px 7px', borderRadius: '5px',
+                                    background: hit ? '#DCFCE7' : '#F1F5F9',
+                                    color: hit ? '#15803D' : '#94A3B8'
+                                  }}
+                                >
+                                  {hit ? '✓' : '–'} {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {!!(item.match_reasons || []).length && (

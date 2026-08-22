@@ -193,15 +193,44 @@ export function isSocialUrl(url) {
   return !!h && SOCIAL_HOSTS.some((s) => h === s || h.endsWith(`.${s}`));
 }
 
+// Social URLs are rejected by default, and admitted only when a paid SERP
+// provider returned them. See SOCIAL_HOSTS above: an anonymous engine hands
+// back login walls, and a login wall in a fraud file is worse than nothing. A
+// result that carries a platform AND was reported by a keyed provider is a
+// genuine indexed post, so for those this group is lifted.
+const SOCIAL_NOISE_PATTERNS = [
+  /(^|\/\/|\.)(instagram|facebook|threads)\.(com|net)/i,
+  /(^|\/\/|\.)fb\.(com|watch)/i,
+  /(^|\/\/|\.)(x|twitter)\.com/i
+];
+
+// Providers whose results are a real search index rather than a scraped page.
+// Only these can vouch for a social URL.
+const KEYED_PROVIDERS = new Set([
+  'Serper social', 'Google (live SERP)', 'Google Programmable Search'
+]);
+
+/**
+ * Is this a social result we are willing to treat as evidence?
+ *
+ * All three conditions matter: the platform must have been derived from the
+ * returned URL, the provider must be a keyed index, and the URL must still be
+ * on a social host. That last check is what stops a mislabelled result from
+ * walking past the filter on the strength of a field alone.
+ */
+export function isVerifiedSocialResult(result) {
+  if (!result || result.source_type !== 'social_media') return false;
+  if (!result.platform) return false;
+  if (!KEYED_PROVIDERS.has(result.engine)) return false;
+  return isSocialUrl(result.url);
+}
+
 // Pages that are structurally useless as evidence even if keywords match.
 const NOISE_PATTERNS = [
   /\/tag\//i, /\/tags\//i, /\/topic\//i, /\/topics\//i, /\/category\//i,
   /\/author\//i, /\/search\?/i, /\/page\/\d+/i, /wikipedia\.org\/wiki\/(?!.*accident)/i,
   /dictionary\.com/i, /merriam-webster/i, /linkedin\.com/i,
-  // Social platforms: see SOCIAL_HOSTS above for why these are excluded.
-  /(^|\/\/|\.)(instagram|facebook|threads)\.(com|net)/i,
-  /(^|\/\/|\.)fb\.(com|watch)/i,
-  /(^|\/\/|\.)(x|twitter)\.com/i,
+  // Social platforms are handled by SOCIAL_NOISE_PATTERNS above.
   /amazon\.(in|com)/i, /flipkart\.com/i, /indiamart\.com/i, /justdial\.com/i,
   /olx\.in/i, /cardekho\.com/i, /carwale\.com/i, /bikewale\.com/i, /zigwheels/i,
   /policybazaar/i, /acko\.com/i, /coverfox/i, /insurancedekho/i
@@ -1424,6 +1453,65 @@ export function buildWideningPlan(anchors, options = {}) {
   return plan.slice(0, maxQueries);
 }
 
+/**
+ * Publicly indexed Facebook and Instagram queries for a case.
+ *
+ * Deliberately separate from buildQueryPlan rather than folded into it: the
+ * tiered plan is the existing, tested behaviour and nothing here should be able
+ * to displace one of its queries. These are additive, dispatched on their own
+ * shard, and the server drops them entirely when no SERP key is configured.
+ *
+ * Each query attacks one angle. Packing every known field into a single query
+ * makes it so specific that Google matches nothing, which is the opposite of
+ * what social discovery is for — the useful hit is usually a bystander's post
+ * that names the place and the vehicle but no claim reference at all.
+ */
+export function buildSocialQueries(anchors, options = {}) {
+  const { maxPerPlatform = 3, platforms = ['facebook.com', 'instagram.com'] } = options;
+  if (!anchors || !anchors.sufficient) return [];
+
+  const place = anchors.places[0] || '';
+  const name = anchors.names.find(isDistinctiveName) || anchors.names[0] || '';
+  const org = anchors.orgs[0] || '';
+  const plate = anchors.plates[0] || '';
+  const vtype = anchors.vehicleTypes[0] || '';
+  const incident = anchors.incidentTerms.find((t) => !NON_EVENT_TERMS.has(t)) || 'accident';
+  const longDate = anchors.date ? formatLongDate(anchors.date) : '';
+
+  // Ordered by how strongly each angle identifies THIS incident.
+  const angles = [
+    { cls: 'social-name', parts: name && place ? [phrase(name), place, 'accident'] : null },
+    { cls: 'social-plate', parts: plate ? [phrase(plate)] : null },
+    { cls: 'social-vehicle', parts: place && vtype ? [place, vtype, incident] : null },
+    { cls: 'social-place', parts: place ? [place, incident] : null },
+    { cls: 'social-date', parts: place && longDate ? [place, phrase(longDate), 'accident'] : null },
+    { cls: 'social-org', parts: org && place ? [phrase(org), place] : null }
+  ].filter((a) => a.parts);
+
+  const plan = [];
+  const seen = new Set();
+
+  platforms.forEach((site) => {
+    let taken = 0;
+    angles.forEach((angle) => {
+      if (taken >= maxPerPlatform) return;
+      const query = scrubQuery(`site:${site} ${angle.parts.filter(Boolean).join(' ')}`);
+      if (!query || seen.has(query.toLowerCase())) return;
+      seen.add(query.toLowerCase());
+      taken += 1;
+      plan.push({
+        query,
+        tier: 4,
+        intent: `Publicly indexed ${site.replace('.com', '')} post — ${angle.cls.replace('social-', '')}`,
+        cls: `${angle.cls}-${site.split('.')[0]}`,
+        engines: ['social']
+      });
+    });
+  });
+
+  return plan;
+}
+
 // Draw order across precision tiers. A plain sort-then-truncate lets a rich
 // case fill the whole budget with tier-1 and tier-2 queries, which silently
 // drops the vernacular tier — the highest-yield tier for Indian district road
@@ -1546,8 +1634,31 @@ function urlWords(url) {
  * for a single ranking pass, and 68s with a dozen place anchors. Tokenising and
  * keying once turns that quadratic blow-up back into a linear scan.
  */
+// A social search snippet is not all post text. Google splices in the
+// engagement chrome — "Dhirendra Rawat and 14 others", "15 reactions · 34
+// comments · 1 share", relative timestamps — which drops arbitrary people's
+// names next to arbitrary content. Measured live: a walk-in-interview job
+// advert scored a CONFIRMED person match purely because the claimant happened
+// to have reacted to it. The chrome is removed before anything is matched
+// against it.
+const SOCIAL_CHROME = [
+  /[\p{Lu}][\p{L}'’.-]*(?:\s+[\p{Lu}][\p{L}'’.-]*)*\s+and\s+\d+\s+others?/gu,
+  /\d[\d,.]*\s*(?:reactions?|comments?|shares?|likes?|views?|followers?)/gi,
+  /·\s*\d+\s*(?:[hdwmy]|hours?|days?|weeks?|months?|years?)/gi,
+  /is at/gi,
+  /See more/gi
+];
+
+function stripSocialChrome(text) {
+  let out = String(text || '');
+  SOCIAL_CHROME.forEach((re) => { out = out.replace(re, ' '); });
+  return out.replace(/\s+/g, ' ').trim();
+}
+
 function buildHaystack(result) {
-  const raw = `${result.title || ''} ${result.snippet || ''} ${result.full_article_text || ''} ${urlWords(result.url || '')}`;
+  const social = isVerifiedSocialResult(result);
+  const snippet = social ? stripSocialChrome(result.snippet) : (result.snippet || '');
+  const raw = `${result.title || ''} ${snippet} ${result.full_article_text || ''} ${urlWords(result.url || '')}`;
   const lower = raw.toLowerCase();
   const roman = (hasIndic(raw) ? `${raw} ${indicToLatin(raw)}` : raw).toLowerCase();
 
@@ -1558,13 +1669,43 @@ function buildHaystack(result) {
     if (k.length >= 3) keys.add(k);
   });
 
+  // Where a PERSON or an operator may legitimately be matched.
+  //
+  // For an ordinary web page that is the whole document. For a social result it
+  // is the title and the URL path only, because Google builds a social snippet
+  // out of the post text AND its comment thread — "Dhirendra Rawat. APani side
+  // Mai bhi nahi chle Raha ..." is a commenter, not the claimant. Matching a
+  // name anywhere in that lets any post a person once commented on read as
+  // evidence about them, which is how a walk-in-interview advert came back as a
+  // person match on a road-accident claim.
+  //
+  // Place, vehicle and incident words still use the full text: they describe
+  // content rather than assert identity, and can carry a result no further than
+  // STRONG, which is explicitly circumstantial.
+  const identity = social
+    ? buildScope(`${result.title || ''} ${urlWords(result.url || '')}`)
+    : null;
+
   return {
     raw,
     lower,
     roman,
     keys,
+    identity,
     compact: raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
   };
+}
+
+// The lower/roman/keys triple for one span of text.
+function buildScope(raw) {
+  const lower = raw.toLowerCase();
+  const roman = (hasIndic(raw) ? `${raw} ${indicToLatin(raw)}` : raw).toLowerCase();
+  const keys = new Set();
+  new Set(roman.match(/[a-z]{4,}/g) || []).forEach((w) => {
+    const k = phoneticKey(w);
+    if (k.length >= 3) keys.add(k);
+  });
+  return { lower, roman, keys };
 }
 
 /** Does `needle` appear in the haystack, allowing for script and spelling drift? */
@@ -1617,7 +1758,12 @@ export function scoreResult(result, anchors) {
   let score = 0;
 
   // -- structural rejection --------------------------------------------------
-  if (NOISE_PATTERNS.some((re) => re.test(url))) {
+  // A verified social post skips only the social rejection group; every other
+  // structural rule still applies to it.
+  const socialEvidence = isVerifiedSocialResult(result);
+  const activeNoise = socialEvidence ? NOISE_PATTERNS : [...NOISE_PATTERNS, ...SOCIAL_NOISE_PATTERNS];
+
+  if (activeNoise.some((re) => re.test(url))) {
     return { score: 0, reasons: ['Rejected: index or commercial page, not an incident report'], matched: [], rejected: true, band: null };
   }
   if (ENTERTAINMENT_NOISE.some((n) => lower.includes(n))) {
@@ -1645,7 +1791,7 @@ export function scoreResult(result, anchors) {
   for (const n of anchors.names) {
     const tokens = cleanPersonName(n).toLowerCase().split(' ').filter((t) => t.length > 2);
     if (tokens.length === 0) continue;
-    const hits = tokens.filter((t) => matchesAnchor(t, hay)).length;
+    const hits = tokens.filter((t) => matchesAnchor(t, hay.identity || hay)).length;
     if (tokens.length >= 2 && hits >= 2) {
       nameHit = true;
       matched.push(n);
@@ -1664,7 +1810,7 @@ export function scoreResult(result, anchors) {
   // -- 3. Organisation ------------------------------------------------------
   let orgHit = false;
   for (const o of anchors.orgs) {
-    if (matchesAnchor(o, hay)) {
+    if (matchesAnchor(o, hay.identity || hay)) {
       orgHit = true;
       matched.push(o);
       reasons.push(`Transport operator "${o}" named in the report`);
@@ -1782,10 +1928,23 @@ export function scoreResult(result, anchors) {
   const strongWithDate = dateHit || corridorHit;
   const strongWithoutDate = !anchors.date && (placeHits >= 2 || vehicleHit);
 
+  // On a social platform a name is weak identification: comment threads and
+  // reaction lists put real people's names beside content that has nothing to
+  // do with them, and the snippet does not say which is which. A registration
+  // number is different — it is unambiguous wherever it appears. So a social
+  // post reaches CONFIRMED only on a plate, and a name or operator match
+  // carries it no further than STRONG.
+  const socialSoftIdentity = socialEvidence && !plateHit && (nameHit || orgHit);
+
   let band;
-  if (caseSpecific) band = BANDS.CONFIRMED;
+  if (caseSpecific && !socialSoftIdentity) band = BANDS.CONFIRMED;
+  else if (socialSoftIdentity) band = BANDS.STRONG;
   else if (placeHits > 0 && incidentHit && (strongWithDate || strongWithoutDate)) band = BANDS.STRONG;
   else band = BANDS.BACKGROUND;
+
+  if (socialSoftIdentity) {
+    reasons.push('Named on a social post, which may be a commenter rather than a party — capped below CONFIRMED');
+  }
 
   return {
     score: final,
@@ -1793,7 +1952,18 @@ export function scoreResult(result, anchors) {
     matched: [...new Set(matched)],
     rejected: false,
     band,
-    caseSpecific
+    caseSpecific: caseSpecific && !socialSoftIdentity,
+    // Which claim fields this source corroborates, as a flat checklist. Derived
+    // from the signals scoring already computed — it adds reporting, not a
+    // second opinion, so the number and the checklist can never disagree.
+    matchedFields: {
+      person: nameHit,
+      vehicle: plateHit || vehicleHit,
+      location: placeHits > 0,
+      date: dateHit,
+      incident: incidentHit,
+      operator: orgHit
+    }
   };
 }
 
@@ -1903,6 +2073,7 @@ export function rankAndDedupe(results, anchors, options = {}) {
       match_reasons: verdict.reasons,
       matched_keywords: verdict.matched,
       band: verdict.band,
+      matched_fields: verdict.matchedFields,
       case_specific: verdict.caseSpecific,
       authoritative: domainScore(publisher) >= 24
     };

@@ -15,7 +15,9 @@
 //   * DuckDuckGo HTML   — site: capable, rate-limits hard
 //   * Mojeek            — independent index, site: capable, no bot challenge
 // Optional, enabled by environment variable if the client has a key:
-//   * SERPER_API_KEY                      -> real Google SERP via serper.dev
+//   * SERPER_API_KEY                      -> real Google SERP via serper.dev,
+//                                            and publicly indexed Facebook /
+//                                            Instagram posts (engines: social)
 //   * GOOGLE_CSE_KEY + GOOGLE_CSE_CX      -> Google Programmable Search JSON API
 //
 // A single invocation is capped at 10s by Netlify, which is nowhere near enough
@@ -165,6 +167,51 @@ function classify(url) {
   if (u.includes('youtube.com') || u.includes('youtu.be')) return 'YouTube';
   if (u.includes('news.google.com') || u.includes('bing.com/news')) return 'News';
   return 'Web';
+}
+
+// A URL safe to render as a link: an absolute http(s) address and nothing else.
+function isBrowsableUrl(url) {
+  if (typeof url !== 'string' || !url) return false;
+  try {
+    const proto = new URL(url).protocol.toLowerCase();
+    return proto === 'http:' || proto === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// Which social platform a result actually belongs to, decided from the host of
+// the URL the engine returned and nothing else. A platform label is a claim
+// that a post exists at that address, so it is never inferred from the query
+// that was asked or constructed from a page name.
+function platformOf(url) {
+  const h = hostOf(url);
+  if (!h) return null;
+  const on = (base) => h === base || h.endsWith(`.${base}`);
+  if (on('facebook.com') || on('fb.com') || on('fb.watch')) return 'facebook';
+  if (on('instagram.com')) return 'instagram';
+  return null;
+}
+
+// A platform profile or hashtag index is not a post. These carry no incident
+// content, so they are dropped here rather than ranked and shown as evidence.
+function isSocialIndexPage(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/+$/, '');
+    if (!path || path === '/') return true;
+
+    // A bare /watch or /story.php is an index, but the same paths carry a real
+    // post when the identifier is in the query string rather than the path.
+    if (/^\/(watch|story\.php|permalink\.php|photo\.php|video\.php)$/i.test(path)) {
+      return !u.search || u.search.length < 3;
+    }
+
+    return /^\/(explore|directory|hashtag|popular|locations|topics|accounts|reels|p|pages|login|help|policies|privacy|terms|about|marketplace|groups)$/i.test(path)
+      || /^\/(explore|directory|hashtag|popular|locations|topics|accounts|login|help|policies|privacy|terms|about|marketplace)\//i.test(path);
+  } catch {
+    return true;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -404,16 +451,69 @@ async function serperGoogle(query, apiKey) {
   const data = await res.json();
   const organic = data.organic || [];
   const news = data.news || [];
-  return [...organic, ...news].slice(0, 14).map((r) => ({
+  return [...organic, ...news].slice(0, 14).map((r) => toSerperResult(r, query, 'Google (live SERP)')).filter((r) => r.url);
+}
+
+// One shape for every Serper result, so an organic hit and a social hit differ
+// only in the platform fields. `source_type` lets the client tell a post from a
+// news article without re-deriving it from the URL.
+function toSerperResult(r, query, engine) {
+  // Only ever emit a browsable web address. Every result URL is rendered as an
+  // href the investigator can click, so a javascript:, data: or file: scheme
+  // arriving from a provider would be handed straight to the browser. Nothing
+  // upstream guarantees the scheme, so it is checked here.
+  const url = isBrowsableUrl(r && r.link) ? r.link : '';
+  const platform = platformOf(url);
+  return {
     title: r.title,
-    url: r.link,
+    url,
     snippet: r.snippet || r.title,
     publish_date: r.date || null,
-    source: classify(r.link),
-    engine: 'Google (live SERP)',
-    domain: hostOf(r.link),
+    source: platform ? 'Social' : classify(url),
+    source_type: platform ? 'social_media' : 'web',
+    platform: platform || null,
+    page_name: platform ? socialPageName(url, r.title) : null,
+    engine,
+    domain: hostOf(url),
     query_used: query
-  })).filter((r) => r.url);
+  };
+}
+
+// The page or account a post belongs to, taken from the first path segment of
+// the returned URL. Falls back to the leading part of the title, which is where
+// Serper puts the page name for Facebook results.
+function socialPageName(url, title) {
+  try {
+    const seg = new URL(url).pathname.split('/').filter(Boolean)[0] || '';
+    if (seg && !/^(p|reel|posts|share|photo|video|story|watch)$/i.test(seg)) {
+      return decodeURIComponent(seg).replace(/[._-]+/g, ' ').trim();
+    }
+  } catch { /* fall through to the title */ }
+  const lead = String(title || '').split(/[|·–-]/)[0].trim();
+  return lead.length >= 3 ? lead.slice(0, 60) : '';
+}
+
+/**
+ * Publicly indexed Facebook and Instagram posts, via the same Serper client.
+ *
+ * Neither platform exposes post content to anonymous crawlers any more, which
+ * is why the free engines return only login walls and why social discovery is
+ * gated on a paid SERP key. Nothing here touches Facebook or Instagram
+ * directly: the only source is Google's public index as Serper reports it, and
+ * only URLs Serper actually returned are ever surfaced.
+ */
+async function serperSocial(query, apiKey) {
+  const res = await timedFetch('https://google.serper.dev/search', {
+    method: 'POST',
+    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: query, gl: 'in', hl: 'en', num: 10 })
+  });
+  if (!res.ok) throw new Error(`Serper social ${res.status}`);
+  const data = await res.json();
+
+  return (data.organic || [])
+    .map((r) => toSerperResult(r, query, 'Serper social'))
+    .filter((r) => r.url && r.platform && !isSocialIndexPage(r.url));
 }
 
 // Google Programmable Search JSON API — the officially supported path.
@@ -611,6 +711,18 @@ export default async (req) => {
     const wantsWeb = !q.engines || q.engines.includes('web');
     const isSiteQuery = /\bsite:/i.test(q.query);
 
+    const wantsSocial = Array.isArray(q.engines) && q.engines.includes('social');
+
+    // Publicly indexed Facebook and Instagram posts. Runs only when a SERP key
+    // is configured: without one there is no engine that returns genuine post
+    // URLs, so dispatching these would spend the budget collecting login walls.
+    // With no key the task is simply never added — the rest of the sweep is
+    // untouched and nothing fails.
+    if (wantsSocial) {
+      if (serperKey) add('Serper social', q.query, () => serperSocial(q.query, serperKey));
+      return;
+    }
+
     // The client decides which language editions this shard covers, so the
     // sweep can be spread across many parallel invocations instead of being
     // crushed into one 10-second budget.
@@ -695,5 +807,6 @@ export const config = { path: '/api/search' };
 // Exposed for the offline parser test suite; not used at runtime.
 export const __test = {
   extractTag, extractAttr, decodeEntities, stripTags, items, hostOf, classify,
-  unwrapBingLink, decodeBingRedirect, assertFeed, NEWS_EDITIONS, BING_MARKETS
+  unwrapBingLink, decodeBingRedirect, assertFeed, platformOf, isSocialIndexPage,
+  socialPageName, toSerperResult, isBrowsableUrl, NEWS_EDITIONS, BING_MARKETS
 };

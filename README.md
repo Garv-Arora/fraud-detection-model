@@ -173,6 +173,17 @@ Netlify CLI or the Python backend.
 Without a key the function still returns live results from Google News RSS
 (English and Hindi), Bing News RSS and DuckDuckGo.
 
+**Facebook and Instagram discovery** is enabled by the same `SERPER_API_KEY`.
+Publicly indexed posts are found through Google's index as Serper reports it —
+neither platform is contacted directly, no authentication is bypassed, and only
+URLs the provider actually returned are surfaced. Each investigation adds up to
+six SERP queries (three per platform), dispatched on their own parallel shard so
+they cost no extra wall-clock. With no key configured the social queries are
+never dispatched and every existing search behaves exactly as before.
+
+The key is read from the environment only. It is never bundled into the client,
+never logged, and never returned by the API; `.env` is gitignored.
+
 ### Why there is no social-media search
 
 Instagram and Facebook discovery was built, tested against every free anonymous
@@ -187,10 +198,23 @@ post — only platform homepages and login walls. Neither platform exposes post
 content to general web crawlers any more.
 
 Consequently any URL on `instagram.com`, `facebook.com`, `fb.watch`, `x.com` or
-`threads.net` is now **rejected outright** as evidence, so a login wall can never
-be filed as a corroborating source. Reaching real posts requires a paid SERP API
-(`SERPER_API_KEY`) or a signed-in session; if a key is configured the results it
-returns flow through the normal ranking path.
+`threads.net` is **rejected by default**, so a login wall can never be filed as a
+corroborating source.
+
+That rejection is lifted for one case only: a Facebook or Instagram URL returned
+by a **keyed** SERP provider (`SERPER_API_KEY`), which is a real search index
+rather than a scraped result page. Those are genuine indexed posts, and they flow
+through the normal ranking path. The same URL arriving from an anonymous engine
+is still rejected.
+
+Social results are also held to a stricter identity rule than web pages. Google
+composes a social snippet from the post text *and* its comment thread, so a
+claimant's name in a snippet is frequently just someone who commented — during
+testing a walk-in-interview job advert matched a road-accident claimant purely
+because he had reacted to it. Person and operator matching therefore reads only
+the post's own title and URL, and a social post can reach **CONFIRMED** only on a
+registration number, which is unambiguous wherever it appears. A name or operator
+match carries it no further than **STRONG**.
 
 ### A note on evidence integrity
 

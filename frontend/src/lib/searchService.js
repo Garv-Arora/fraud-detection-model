@@ -26,8 +26,8 @@
 // ============================================================================
 
 import {
-  extractAnchors, buildQueryPlan, buildWideningPlan, rankAndDedupe, scrubQuery,
-  BANDS
+  extractAnchors, buildQueryPlan, buildWideningPlan, buildSocialQueries,
+  rankAndDedupe, scrubQuery, isVerifiedSocialResult, BANDS
 } from './searchIntel.js';
 import { buildGoogleDeepLinks } from './googleDeepLinks.js';
 import { buildEvidenceSummary } from './evidenceSummary.js';
@@ -209,7 +209,18 @@ function mergeShardResults(payloads) {
 async function fetchViaFunction(plan, options, anchors) {
   const { shards, dropped } = buildShards(plan, anchors?.languages, options);
 
-  const payloads = await Promise.all(shards.map(async (shard) => {
+  // Social discovery rides its own shard, appended after the cap so it can
+  // never displace a language edition and can never itself be the thing
+  // dropped. Every query on it is one Serper call, so the whole platform sweep
+  // costs a single invocation running in parallel with everything else — no
+  // added wall clock. The server drops the shard outright when no SERP key is
+  // configured, so with no key this costs nothing and changes nothing.
+  const socialQueries = Array.isArray(options.socialQueries) ? options.socialQueries : [];
+  const allShards = socialQueries.length
+    ? [...shards, { primary: false, social: true, queries: socialQueries }]
+    : shards;
+
+  const payloads = await Promise.all(allShards.map(async (shard) => {
     try {
       return await postJSON(`${API_BASE}/search`, {
         queries: shard.queries,
@@ -217,12 +228,16 @@ async function fetchViaFunction(plan, options, anchors) {
       }, options.timeoutMs || 25000);
     } catch (err) {
       // One shard failing degrades coverage; it must never fail the search.
-      return { errors: [`Shard failed: ${String(err.message || err)}`] };
+      // That holds for the social shard too: if Serper is down, rate limited or
+      // unkeyed, the news and web tiers carry on and the investigation stands.
+      return {
+        errors: [`${shard.social ? 'Social shard' : 'Shard'} failed: ${String(err.message || err)}`]
+      };
     }
   }));
 
   const merged = mergeShardResults(payloads);
-  merged.shardCount = shards.length;
+  merged.shardCount = allShards.length;
   if (dropped > 0) {
     // Never let a truncated sweep read as a complete one.
     merged.errors.push(`${dropped} language shard${dropped > 1 ? 's were' : ' was'} dropped to stay within the invocation cap`);
@@ -277,6 +292,10 @@ async function fetchViaLegacy(plan, params, options) {
 async function enrichWithFullText(ranked, anchors, options) {
   const candidates = ranked
     .filter((r) => r.band !== BANDS.CONFIRMED && r.url && !/web\.archive\.org/.test(r.url))
+    // A social post is behind a login wall for an anonymous fetch, so the body
+    // would come back as a sign-in page. Spending the fetch budget on that
+    // would displace a news article that can actually be read.
+    .filter((r) => !isVerifiedSocialResult(r))
     .slice(0, options.fetchTop || 10);
 
   if (!candidates.length) return ranked;
@@ -439,6 +458,12 @@ export async function runSearch(input = {}) {
   const anchors = extractAnchors(input.query || seedText, facts);
   const deepLinks = buildGoogleDeepLinks(anchors);
 
+  // Additive: the tiered plan below is built exactly as before and is never
+  // consulted for these.
+  const socialQueries = options.includeSocial === false
+    ? []
+    : buildSocialQueries(anchors, { maxPerPlatform: options.maxSocialPerPlatform || 3 });
+
   // An explicit list (from the investigator's edited query console) is executed
   // verbatim; otherwise the tiered planner decides what to run.
   const plan = Array.isArray(input.explicitQueries) && input.explicitQueries.length
@@ -507,8 +532,8 @@ export async function runSearch(input = {}) {
 
   const chosen = await resolveTransport(plan);
 
-  const dispatch = async (queries) => {
-    if (chosen === 'function') return fetchViaFunction(queries, options, anchors);
+  const dispatch = async (queries, extra = {}) => {
+    if (chosen === 'function') return fetchViaFunction(queries, { ...options, ...extra }, anchors);
     if (chosen === 'legacy') {
       return fetchViaLegacy(queries, {
         query: input.query,
@@ -538,13 +563,15 @@ export async function runSearch(input = {}) {
     if (next.timedOut) raw.timedOut = true;
   };
 
-  const executed = [...plan];
+  const executed = [...plan, ...socialQueries];
 
   try {
-    const first = await dispatch(plan);
+    // Social runs once, on the first pass. Repeating it on the harvest and
+    // widening rounds would re-spend SERP credits for the same platform hits.
+    const first = await dispatch(plan, { socialQueries });
     if (first) {
       absorb(first);
-      record('primary', plan.map((p) => p.query), first);
+      record('primary', [...plan, ...socialQueries].map((p) => p.query), first);
       mode = 'live';
       roundsRun = 1;
     }
@@ -611,6 +638,7 @@ export async function runSearch(input = {}) {
     ranked = await enrichWithFullText(ranked, anchors, options);
   }
 
+  const socialResults = ranked.filter(isVerifiedSocialResult);
   const bandCounts = ranked.reduce((acc, r) => {
     acc[r.band] = (acc[r.band] || 0) + 1;
     return acc;
@@ -638,6 +666,7 @@ export async function runSearch(input = {}) {
     transport,
     anchors,
     query_plan: executed,
+    social_queries: socialQueries.map((p) => p.query),
     query_executed: executed.map((p) => p.query),
     keywords_extracted: [
       ...anchors.plates,
@@ -651,6 +680,10 @@ export async function runSearch(input = {}) {
     results: ranked,
     total_results: ranked.length,
     band_counts: bandCounts,
+    social_counts: {
+      facebook: socialResults.filter((r) => r.platform === 'facebook').length,
+      instagram: socialResults.filter((r) => r.platform === 'instagram').length
+    },
     raw_result_count: raw.results.length,
     engines_used: raw.enginesUsed,
     engines_unavailable: raw.enginesUnavailable || [],
